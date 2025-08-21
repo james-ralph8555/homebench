@@ -56,16 +56,16 @@ HomeBench is a client-only Next.js application that runs DuckDB entirely in the 
 
 ```mermaid
 flowchart LR
-  A[UI Components\nNext.js + React] -->|queries| B(DuckDB-WASM\nWeb Worker)
-  B -->|results (Arrow)| A
-  A -->|save/load| C[OPFS\n.homebench_session.duckdb]
-  A -->|saved queries| D[IndexedDB\nDexie]
-  A -->|metadata| E[IndexedDB\nTable Metadata]
-  A -->|file handles| F[(Browser File APIs)]
-  F -->|register/read*| B
+  A[UI Components\nNext.js + React] -->|queries| B(DuckDB-WASM\nWeb Worker);
+  B -->|results (Arrow)| A;
+  A -->|save/load| C[OPFS\n.homebench_session.duckdb];
+  A -->|saved queries| D[IndexedDB\nDexie];
+  A -->|metadata| E[IndexedDB\nTable Metadata];
+  A -->|file handles| F[(Browser File APIs)];
+  F -->|"register/read*"| B;
 
-  classDef store fill:#f6f8fa,stroke:#c9d1d9,color:#24292f
-  class C,D,E store
+  classDef store fill:#f6f8fa,stroke:#c9d1d9,color:#24292f;
+  class C,D,E store;
 ```
 
 Notes:
