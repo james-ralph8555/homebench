@@ -47,8 +47,12 @@ export const TabbedWorkbench: React.FC = () => {
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
     setSaveQueryCallback(() => cb);
   }, []);
-  const handleSaveTablesCallbackChange = useCallback((cb: () => Promise<void>) => {
-    setSaveTablesCallback(() => cb);
+  // Accept a void callback from child and adapt to Promise<void>
+  const handleSaveTablesCallbackChange = useCallback((cb: () => void) => {
+    setSaveTablesCallback(() => async () => {
+      // Normalize any return type to a promise to simplify callers
+      await Promise.resolve(cb());
+    });
   }, []);
   const handleDeleteTablesCallbackChange = useCallback((cb: () => Promise<void>) => {
     setDeleteTablesCallback(() => cb);

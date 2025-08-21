@@ -66,6 +66,22 @@ export const PersistencePanel: React.FC<PersistencePanelProps> = ({ onTablesLoad
     }
   }, [saveSession]);
 
+  const handleDelete = useCallback(async () => {
+    if (!confirm('Are you sure you want to delete your saved session? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteSession();
+      setSessionExists(false);
+      setSessionSize(null);
+      setMessage('Saved session deleted successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      setMessage(`Failed to delete: ${error.message}`);
+    }
+  }, [deleteSession]);
+
   useEffect(() => {
     // Provide the save callback to the parent
     const saveCallback = () => handleSave();
@@ -73,7 +89,7 @@ export const PersistencePanel: React.FC<PersistencePanelProps> = ({ onTablesLoad
     // Provide delete callback to parent for settings menu
     const deleteCallback = async () => { await handleDelete(); };
     onDeleteCallbackChange?.(deleteCallback);
-  }, [onSaveCallbackChange, onDeleteCallbackChange, handleSave]);
+  }, [onSaveCallbackChange, onDeleteCallbackChange, handleSave, handleDelete]);
 
   const handleLoad = async () => {
     try {
@@ -95,21 +111,7 @@ export const PersistencePanel: React.FC<PersistencePanelProps> = ({ onTablesLoad
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete your saved session? This cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await deleteSession();
-      setSessionExists(false);
-      setSessionSize(null);
-      setMessage('Saved session deleted successfully!');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error: any) {
-      setMessage(`Failed to delete: ${error.message}`);
-    }
-  };
+  // handleDelete moved above and memoized
 
   if (!isSupported) {
     return (
