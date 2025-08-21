@@ -1,0 +1,146 @@
+'use client';
+
+import React, { useMemo, useCallback } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, GridOptions } from 'ag-grid-community';
+import { Table as ArrowTable } from 'apache-arrow';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import { ResultOptimizer, MemoryManager } from '@/lib/performanceUtils';
+
+interface ResultsGridProps {
+  data: ArrowTable;
+  className?: string;
+}
+
+export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '' }) => {
+  // Memoize number formatter to prevent recreation on every render
+  const numberFormatter = useCallback((params: any) => {
+    if (params.value === null || params.value === undefined) return '';
+    return typeof params.value === 'number' ? params.value.toFixed(2) : params.value;
+  }, []);
+
+  // Memoize the transformation to prevent re-computation on re-renders
+  const { columnDefs, rowData, rowCount } = useMemo(() => {
+    if (!data || data.numRows === 0) {
+      return { columnDefs: [], rowData: [], rowCount: 0 };
+    }
+
+    const fields: ColDef[] = data.schema.fields.map(field => {
+      const isNumericType = field.type.toString().includes('float') || 
+                           field.type.toString().includes('double') ||
+                           field.type.toString().includes('int');
+      
+      return {
+        headerName: field.name,
+        field: field.name,
+        sortable: true,
+        filter: isNumericType ? 'agNumberColumnFilter' : 'agTextColumnFilter',
+        resizable: true,
+        // Add type-specific formatting for floating point numbers only
+        ...(field.type.toString().includes('float') || field.type.toString().includes('double') ? {
+          valueFormatter: numberFormatter,
+          type: 'numericColumn'
+        } : {}),
+        // Optimize rendering for large datasets
+        enableRowGroup: false, // Disable for performance
+        enablePivot: false, // Disable for performance
+      };
+    });
+
+    // Convert Arrow Table to an array of objects for AG Grid
+    // Use lazy conversion for better memory usage with large datasets
+    const rows = data.toArray().map(row => row.toJSON());
+
+    return { 
+      columnDefs: fields, 
+      rowData: rows, 
+      rowCount: data.numRows 
+    };
+  }, [data, numberFormatter]);
+
+  // Calculate optimal performance settings
+  const performanceConfig = useMemo(() => {
+    const optimalPageSize = ResultOptimizer.getOptimalPageSize(rowCount, columnDefs.length);
+    const shouldVirtualize = ResultOptimizer.shouldVirtualize(rowCount, columnDefs.length);
+    const shouldWarnMemory = MemoryManager.shouldWarnAboutMemory(rowCount, columnDefs.length);
+    
+    return {
+      pageSize: optimalPageSize,
+      virtualize: shouldVirtualize,
+      warnMemory: shouldWarnMemory,
+      estimatedMemory: MemoryManager.estimateTableMemory(rowCount, columnDefs.length)
+    };
+  }, [rowCount, columnDefs.length]);
+
+  // Memoize grid options for performance
+  const gridOptions = useMemo<GridOptions>(() => ({
+    columnDefs,
+    rowData,
+    rowSelection: 'multiple',
+    animateRows: false, // Disable animations for better performance
+    pagination: true,
+    paginationPageSize: performanceConfig.pageSize,
+    suppressRowClickSelection: true, // Improve click performance
+    suppressCellFocus: true, // Improve navigation performance
+    suppressColumnVirtualisation: !performanceConfig.virtualize,
+    suppressRowVirtualisation: !performanceConfig.virtualize,
+    rowBuffer: performanceConfig.virtualize ? 20 : 10,
+    defaultColDef: {
+      minWidth: performanceConfig.virtualize ? 120 : 100,
+      flex: 1,
+      sortable: true,
+      resizable: true,
+      suppressMenu: false,
+    },
+    // Performance optimizations for large datasets
+    ...(rowCount > 10000 ? {
+      rowModelType: 'clientSide',
+      cacheBlockSize: performanceConfig.pageSize,
+      maxConcurrentDatasourceRequests: 2,
+      purgeClosedRowNodes: true,
+      maxBlocksInCache: 10,
+    } : {}),
+  }), [columnDefs, rowData, rowCount, performanceConfig]);
+
+  // Handle empty data after all hooks
+  if (!data || data.numRows === 0) {
+    return (
+      <div className={`flex items-center justify-center h-64 border border-gray-300 dark:border-gray-600 rounded-lg ${className}`}>
+        <div className="text-center text-gray-500 dark:text-gray-400">
+          <div className="text-4xl mb-2 text-gray-400">📊</div>
+          <p>No data to display</p>
+          <p className="text-sm">Run a query to see results here</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${className}`}>
+      <div className="mb-2 space-y-1">
+        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+          <span>Showing {rowCount.toLocaleString()} rows × {columnDefs.length} columns</span>
+          <span className="text-xs">
+            Est. memory: {MemoryManager.formatMemorySize(performanceConfig.estimatedMemory)}
+          </span>
+        </div>
+        
+        {performanceConfig.warnMemory && (
+          <div className="text-xs text-orange-600 dark:text-orange-400">
+            Large dataset detected - using optimized rendering (page size: {performanceConfig.pageSize})
+          </div>
+        )}
+        
+        {performanceConfig.virtualize && (
+          <div className="text-xs text-blue-600 dark:text-blue-400">
+            Virtual scrolling enabled for better performance
+          </div>
+        )}
+      </div>
+      <div className="ag-theme-alpine" style={{ height: 500, width: '100%' }}>
+        <AgGridReact {...gridOptions} />
+      </div>
+    </div>
+  );
+};

@@ -35,13 +35,15 @@ npm run lint
 npm run typecheck
 ```
 
-## Core Features to Implement
-1. **File Upload**: Register CSV/Parquet files with DuckDB virtual filesystem
-2. **SQL Editor**: CodeMirror-based editor with SQL syntax highlighting
-3. **Query Execution**: Execute SQL against loaded datasets
-4. **Results Display**: AG Grid for high-performance data visualization
+## Core Features (Implemented)
+1. **File Upload**: Register CSV/Parquet/JSON files with DuckDB virtual filesystem
+2. **SQL Editor**: CodeMirror-based editor with SQL syntax highlighting and performance hints
+3. **Query Execution**: Execute SQL against loaded datasets with automatic optimization
+4. **Results Display**: AG Grid with virtualization for high-performance data visualization
 5. **Data Export**: Export query results in various formats (CSV, Parquet, JSON)
-6. **Session Persistence**: Save/restore database state using OPFS
+6. **Session Persistence**: Full database snapshot saved to OPFS (includes uploaded data)
+7. **Performance Monitoring**: Real-time performance metrics and query optimization
+8. **Schema Explorer**: Interactive database schema browser with caching
 
 ## Key Implementation Notes
 
@@ -50,9 +52,16 @@ npm run typecheck
 - Initialize as singleton in React Context
 - Configure Next.js webpack for WebAssembly support
 
-### Performance Considerations
-- Use `registerFileHandle()` for zero-copy file ingestion
-- Stream large results with `connection.send()` instead of `connection.query()`
+### Performance Optimizations
+- **Connection Pool**: Reuse DuckDB connections with configurable pool size
+- **Query Optimization**: Automatic LIMIT injection for unbounded SELECT queries
+- **Memory Management**: Real-time memory usage monitoring and warnings
+- **Virtualization**: Row/column virtualization for large datasets in AG Grid
+- **Caching**: Schema information caching with 5-second TTL
+- **Debounced Input**: 150ms debounce on SQL editor to reduce re-renders
+- **Parallel Loading**: Load table metadata in parallel for better performance
+- **Smart Pagination**: Dynamic page sizes based on dataset characteristics
+- Ingestion copies uploads into DuckDB tables (not zero-copy)
 - Prefer Parquet format for better query performance
 - Close connections and statements promptly
 
@@ -61,10 +70,12 @@ npm run typecheck
 - Single-threaded execution (experimental threading available)
 - CORS required for remote data access
 - No direct TCP/socket connections (PostgreSQL scanner unavailable)
+- JSON files larger than 16MB may exceed DuckDB's `maximum_object_size` limit and fail to load
 
 ### Storage Strategy
-- **OPFS**: Store main database file for persistence
-- **IndexedDB**: Store metadata (saved queries, preferences)
+- **OPFS**: Store full DuckDB database snapshot (`.duckdb`) of current session
+- **IndexedDB**: Store metadata (saved queries, preferences, table tracking)
+- **Ingestion**: Uploads are copied into DuckDB tables; data remains on-device
 
 ## Privacy Architecture
 - **Zero Server Processing**: All data processing happens in browser
