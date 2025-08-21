@@ -6,7 +6,10 @@ This directory, `.docs_for_ai/`, serves as a local documentation library for AI 
 ### Core Technologies
 - **`duckdb/`**: DuckDB analytical database documentation
   - `clients/cpp.md`: C++ client library usage
+  - `clients/wasm/data_ingestion.md`: Data ingestion into DuckDB WASM
   - `clients/wasm/deploying_duckdb_wasm.md`: Deploying DuckDB WASM
+  - `clients/wasm/extensions.md`: DuckDB WASM extensions
+  - `clients/wasm/query.md`: Querying with DuckDB WASM
   - `csv-export.md`: CSV export functionality
   - `csv-overview.md`: CSV reading and processing
 
