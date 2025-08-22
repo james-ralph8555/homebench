@@ -44,8 +44,8 @@ export async function loadSession(db: any): Promise<void> {
 }
 
 export async function checkSessionExists(db?: any): Promise<boolean> {
-  const { isOPFSSupported } = await import('./opfsUtils');
-  if (!isOPFSSupported()) return false;
+  const { isOpfsSupported } = await import('./duckdbManager');
+  if (!isOpfsSupported()) return false;
   
   // Check if there are any tables in the database as a proxy for saved session
   if (!db) return false;
@@ -70,8 +70,7 @@ export async function checkSessionExists(db?: any): Promise<boolean> {
 }
 
 export async function deleteSession(): Promise<void> {
-  const { deleteDatabaseFromOPFS } = await import('./opfsUtils');
-  await deleteDatabaseFromOPFS();
+  throw new Error('Session deletion functionality removed for fail-fast approach');
 }
 
 export async function getSessionSize(): Promise<number | null> {

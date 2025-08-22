@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { isOPFSSupported, DB_FILE_NAME, DB_VFS_PATH } from './opfsUtils';
+import { DB_FILE_NAME, DB_VFS_PATH } from './opfsUtils';
+import { isOpfsSupported } from './duckdbManager';
 
 describe('OPFS utils basics', () => {
   const originalNavigator = navigator;
@@ -20,11 +21,11 @@ describe('OPFS utils basics', () => {
   it('detects OPFS support based on navigator.storage.getDirectory', () => {
     // Initially false if not present
     delete (navigator as any).storage;
-    expect(isOPFSSupported()).toBe(false);
+    expect(isOpfsSupported()).toBe(false);
 
     // Add minimal storage.getDirectory
     (navigator as any).storage = { getDirectory: async () => ({}) };
-    expect(isOPFSSupported()).toBe(true);
+    expect(isOpfsSupported()).toBe(true);
   });
 });
 

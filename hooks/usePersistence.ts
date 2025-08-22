@@ -9,7 +9,7 @@ import {
   deleteSession as deleteSessionImpl,
   getSessionSize as getSessionSizeImpl,
 } from '@/lib/persistence';
-import { isOPFSSupported } from '@/lib/opfsUtils';
+import { isOpfsSupported } from '@/lib/duckdbManager';
 
 export const usePersistence = () => {
   const { db } = useDuckDB();
@@ -97,7 +97,7 @@ export const usePersistence = () => {
     isDeleting,
     isLoading,
     lastSaved,
-    isSupported: isOPFSSupported(),
+    isSupported: isOpfsSupported(),
   };
 };
 

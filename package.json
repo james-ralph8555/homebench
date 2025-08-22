@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@codemirror/lang-sql": "^6.7.0",
-    "@duckdb/duckdb-wasm": "^1.29.0",
+    "@duckdb/duckdb-wasm": "^1.29.1-dev269.0",
     "@types/lodash": "^4.17.20",
     "@uiw/react-codemirror": "^4.23.0",
     "ag-grid-community": "^32.0.0",

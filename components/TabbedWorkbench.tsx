@@ -18,6 +18,7 @@ import { GearIcon, TriangleIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
+import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
 
 type TabType = 'upload' | 'query';
 
@@ -85,54 +86,37 @@ export const TabbedWorkbench: React.FC = () => {
     setError(null);
     setResults(null);
 
-    let connection = null;
     try {
-      connection = await db.connect();
+      const startTime = performance.now();
       
-      // Analyze query for performance hints
-      const analysis = QueryOptimizer.analyzeQuery(sql);
-      setQueryHints(analysis.hints);
-      
-      // Optimize query if needed
-      const optimizedSql = QueryOptimizer.optimizeQuery(sql, 1000);
-      const wasOptimized = optimizedSql !== sql;
-      
-      // Execute query with performance monitoring
-      const { result: queryResult, duration, memory } = await PerfMonitorUtils.measureQuery(
-        () => connection!.query(optimizedSql),
-        sql
-      );
-      
-      setResults(queryResult as ArrowTable);
-      setQueryMetrics({ duration, memory });
-      
-      if (wasOptimized) {
-        console.log('Query automatically optimized with LIMIT for better performance');
-      }
-      
-      // Check if the query was a DDL statement (CREATE, DROP, ALTER) that might affect schema
+      // Simple query execution - fail fast
       const trimmedSql = sql.trim();
       const upperSql = trimmedSql.toUpperCase();
-      if (upperSql.startsWith('CREATE') || upperSql.startsWith('DROP') || upperSql.startsWith('ALTER')) {
-        // Trigger schema refresh
-        setSchemaRefreshTrigger(prev => prev + 1);
+      const isWriteOperation = upperSql.startsWith('INSERT') || upperSql.startsWith('UPDATE') || 
+                              upperSql.startsWith('DELETE') || upperSql.startsWith('CREATE') || 
+                              upperSql.startsWith('DROP') || upperSql.startsWith('ALTER');
+
+      if (isWriteOperation) {
+        // Write operation - use durable write
+        const result = await executeDurableWrite(sql);
+        const duration = performance.now() - startTime;
+        setQueryMetrics({ duration });
         
-        // If it's a CREATE TABLE statement, track it as user-created
-        if (upperSql.startsWith('CREATE TABLE')) {
-          // Extract table name from CREATE TABLE statement
-          const createTableMatch = sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"([^"]+)"|(\w+))/i);
-          if (createTableMatch) {
-            const tableName = createTableMatch[1] || createTableMatch[2];
-            await markTableAsUserCreated(tableName);
-          }
+        // Trigger schema refresh for DDL operations
+        if (upperSql.startsWith('CREATE') || upperSql.startsWith('DROP') || upperSql.startsWith('ALTER')) {
+          setSchemaRefreshTrigger(prev => prev + 1);
         }
+      } else {
+        // Read operation
+        const result = await executeReadQuery(sql);
+        const duration = performance.now() - startTime;
+        setResults(result as ArrowTable);
+        setQueryMetrics({ duration });
       }
     } catch (e: any) {
+      console.error('Query execution failed:', e);
       setError(e.message);
     } finally {
-      if (connection) {
-        await connection.close();
-      }
       setIsQuerying(false);
     }
   };

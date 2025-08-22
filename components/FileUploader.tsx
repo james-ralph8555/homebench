@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { FolderIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { markTableAsUploaded } from '@/lib/tableMetadataStore';
+import { createTableFromFile } from '@/lib/durableOperations';
 
 interface FileUploaderProps {
   onFileUploaded?: (fileName: string) => void;
@@ -23,6 +24,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     }
 
     setIsUploading(true);
+    const startTime = performance.now();
+    
     try {
       setMessage(`Registering file: ${file.name}...`);
       
@@ -37,36 +40,31 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         true // Make the file persistent within the session
       );
       
-      // Create a table from the file based on its extension
-      const connection = await db.connect();
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      let query = '';
+      setMessage(`Creating table from ${file.name}...`);
       
-      switch (fileExt) {
-        case 'csv':
-          query = `CREATE OR REPLACE TABLE "${file.name}" AS SELECT * FROM read_csv_auto('${file.name}')`;
-          break;
-        case 'parquet':
-          query = `CREATE OR REPLACE TABLE "${file.name}" AS SELECT * FROM read_parquet('${file.name}')`;
-          break;
-        case 'json':
-          query = `CREATE OR REPLACE TABLE "${file.name}" AS SELECT * FROM read_json_auto('${file.name}')`;
-          break;
-        default:
-          throw new Error(`Unsupported file type: ${fileExt}`);
+      // Use durable operation to create table with guaranteed persistence
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+      const result = await createTableFromFile(file.name, file.name, fileExt);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create table from file');
       }
-      
-      await connection.query(query);
-      await connection.close();
 
       // Mark this table as an uploaded file in metadata store
       await markTableAsUploaded(file.name, file.name);
 
-      setMessage(`Successfully loaded ${file.name} as a table.`);
+      const duration = performance.now() - startTime;
+      const rowsText = result.rowsAffected ? ` (${result.rowsAffected} rows)` : '';
+      
+      setMessage(`✅ Successfully loaded ${file.name} as a table${rowsText} in ${duration.toFixed(0)}ms`);
+      console.log(`📊 Table "${file.name}" created with durable persistence in ${duration.toFixed(2)}ms`);
+      
       onFileUploaded?.(file.name);
     } catch (e: any) {
-      setMessage(`Error: ${e.message}`);
-      console.error(e);
+      const duration = performance.now() - startTime;
+      const errorMsg = `Error loading ${file.name}: ${e.message}`;
+      setMessage(errorMsg);
+      console.error(`❌ File upload failed after ${duration.toFixed(2)}ms:`, e);
     } finally {
       setIsUploading(false);
     }

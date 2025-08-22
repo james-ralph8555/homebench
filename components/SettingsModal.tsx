@@ -4,14 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MemoryUsageBar } from './MemoryUsageBar';
 import { TriangleIcon, BugIcon, RefreshIcon, FileIcon, FolderIcon, WarningIcon, SunIcon, MoonIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
-import { 
-  deleteDatabaseFromOPFS, 
-  getDatabaseFileSize, 
-  isOPFSSupported,
-  forceCleanupOPFS,
-  debugOPFS,
-  resetApplicationData 
-} from '@/lib/opfsUtils';
+import { getDatabaseFileSize } from '@/lib/opfsUtils';
+import { isOpfsSupported } from '@/lib/duckdbManager';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -57,7 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showOpfsBrowser, setShowOpfsBrowser] = useState(false);
 
   const loadOPFSFiles = useCallback(async () => {
-    if (!isOPFSSupported()) {
+    if (!isOpfsSupported()) {
       setOpfsFiles([]);
       return;
     }
@@ -103,7 +97,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   const loadOPFSInfo = useCallback(async () => {
-    const supported = isOPFSSupported();
+    const supported = isOpfsSupported();
     const fileSize = await getDatabaseFileSize();
     setOpfsInfo({
       supported,
@@ -173,28 +167,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleDeleteAllData = async () => {
-    if (!confirm('Delete ALL application data? This will remove:\n• All saved tables\n• All saved queries\n• All application settings\n• OPFS database files\n• IndexedDB data\n\nThis action cannot be undone!')) return;
-    
-    setIsLoading(true);
-    try {
-      await resetApplicationData();
-      
-      // Refresh state
-      setSavedQueries([]);
-      await loadOPFSInfo(); // This will refresh both OPFS info and files
-      
-      alert('All application data has been deleted. The page will now reload to ensure a clean state.');
-      
-      // Force a page reload after a short delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (error) {
-      console.error('Error during data reset:', error);
-      alert('There was an error during the reset. Please refresh the page manually.');
-    } finally {
-      setIsLoading(false);
-    }
+    alert('Data deletion functionality removed. Please refresh the page or clear browser data manually.');
   };
 
   if (!isOpen) return null;
@@ -320,14 +293,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <h4 className="font-medium text-gray-900 dark:text-gray-100">OPFS Files</h4>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => {
-                        debugOPFS();
-                        console.log('Check the console for detailed OPFS information');
-                      }}
-                      className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300 inline-flex items-center space-x-1"
+                      onClick={() => console.log('Debug functionality removed for fail-fast approach')}
+                      className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-300 inline-flex items-center space-x-1"
                     >
                       <BugIcon />
-                      <span>Debug</span>
+                      <span>Debug (Disabled)</span>
                     </button>
                     <button
                       onClick={loadOPFSFiles}

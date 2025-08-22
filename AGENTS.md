@@ -35,3 +35,7 @@
 - This is a client-side, privacy-first app; never commit secrets or large datasets.
 - Keep `asyncWebAssembly` enabled in `next.config.js`; verify DuckDB-WASM loads in modern browsers.
 - Respect CORS when referencing remote files; prefer local uploads during development.
+
+## AI Agent Operating Notes
+- **Search scope**: Do not search/grep inside `node_modules/`. Limit repository scans to source directories (e.g., `app/`, `components/`, `contexts/`, `lib/`, and project config files).
+- **Examples**: Use `rg -n "pattern" -g '!node_modules/**'` or `grep -R --exclude-dir=node_modules "pattern" .` to keep `node_modules/` excluded.
