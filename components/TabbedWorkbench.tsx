@@ -411,7 +411,7 @@ export const TabbedWorkbench: React.FC = () => {
                 {/* Results Grid */}
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Query Results</h3>
-                  <ResultsGrid data={results!} />
+                  <ResultsGrid data={results!} theme={theme} />
                 </div>
               </div>
             </div>

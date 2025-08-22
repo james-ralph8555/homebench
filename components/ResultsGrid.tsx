@@ -6,15 +6,17 @@ import { ColDef, GridOptions } from 'ag-grid-community';
 import { Table as ArrowTable } from 'apache-arrow';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { ResultOptimizer, MemoryManager } from '@/lib/performanceUtils';
 import { ChartIcon } from './icons';
 
 interface ResultsGridProps {
   data: ArrowTable;
   className?: string;
+  theme?: 'light' | 'dark';
 }
 
-export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '' }) => {
+export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', theme = 'dark' }) => {
   // Memoize number formatter to prevent recreation on every render
   const numberFormatter = useCallback((params: any) => {
     if (params.value === null || params.value === undefined) return '';
@@ -130,7 +132,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '' }
         </div>
         
       </div>
-      <div className="ag-theme-alpine" style={{ height: 500, width: '100%' }}>
+      <div className={theme === 'dark' ? 'ag-theme-quartz-dark' : 'ag-theme-alpine'} style={{ height: 500, width: '100%' }}>
         <AgGridReact {...gridOptions} />
       </div>
     </div>

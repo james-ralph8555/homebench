@@ -163,20 +163,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleDeleteQueries = async () => {
-    if (!confirm('Delete all saved queries? This action cannot be undone.')) return;
-    
-    setIsLoading(true);
-    try {
-      const keys = Object.keys(localStorage).filter(key => 
-        key.startsWith('homebench_query_') || key.startsWith('saved_query_')
-      );
-      keys.forEach(key => localStorage.removeItem(key));
-      setSavedQueries([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDeleteAllData = async () => {
     if (!confirm('Delete ALL application data including database, saved queries, and settings? This cannot be undone and will reload the page.')) {
@@ -439,14 +425,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </button>
 
-              <button
-                onClick={handleDeleteQueries}
-                disabled={isLoading || savedQueries.length === 0}
-                className="w-full text-left px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors disabled:opacity-50"
-              >
-                <div className="font-medium">Delete All Saved Queries</div>
-                <div className="text-sm opacity-75">Clear all saved SQL queries ({savedQueries.length})</div>
-              </button>
 
               <button
                 onClick={handleDeleteAllData}
