@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { FolderIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { markTableAsUploaded } from '@/lib/tableMetadataStore';
 
@@ -127,7 +128,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         />
         
         <div className="space-y-2">
-          <div className="text-4xl text-gray-400">📁</div>
+          <div className="text-gray-400 flex justify-center">
+            <FolderIcon />
+          </div>
           <div>
             <p className="text-lg font-medium">
               {isUploading ? 'Processing file...' : 'Upload your data file'}

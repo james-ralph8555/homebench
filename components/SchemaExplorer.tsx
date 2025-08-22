@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { TriangleIcon, RefreshIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 
 interface TableInfo {
@@ -192,15 +193,14 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Schema</h3>
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
         <button
           onClick={loadSchema}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
           title="Refresh schema"
         >
-          Refresh
+          <RefreshIcon className="mr-1" /> Refresh
         </button>
       </div>
 
@@ -223,9 +223,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
                   className="flex items-center space-x-2 cursor-pointer"
                   onClick={() => toggleTableExpansion(table.name)}
                 >
-                  <span className="text-sm">
-                    {expandedTables.has(table.name) ? '▼' : '▶'}
-                  </span>
+                  <TriangleIcon className={`text-gray-700 dark:text-gray-300 transition-transform duration-200 ${expandedTables.has(table.name) ? 'rotate-90' : 'rotate-0'}`} />
                   <span 
                     className="font-medium hover:text-blue-600 dark:hover:text-blue-400"
                     onClick={(e) => {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { DocumentIcon, TrashIcon } from './icons';
 import { 
   SavedQuery, 
   getAllQueries, 
@@ -104,7 +105,9 @@ export const SavedQueries: React.FC<SavedQueriesProps> = ({ onQuerySelect, curre
 
       {queries.length === 0 ? (
         <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-          <div className="text-2xl mb-2 text-gray-400">📝</div>
+          <div className="mb-2 text-gray-400 flex justify-center">
+            <DocumentIcon size={28} />
+          </div>
           <p>No saved queries yet</p>
           <p className="text-sm">Save your first query to get started</p>
         </div>
@@ -137,7 +140,7 @@ export const SavedQueries: React.FC<SavedQueriesProps> = ({ onQuerySelect, curre
                   className="text-red-500 hover:text-red-700 text-sm p-1"
                   title="Delete query"
                 >
-                  🗑️
+                  <TrashIcon />
                 </button>
               </div>
             </div>

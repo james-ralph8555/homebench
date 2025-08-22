@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { Table as ArrowTable } from 'apache-arrow';
+import { FolderIcon } from './icons';
 
 interface DataPreviewProps {
   tableName: string | null;
@@ -60,7 +61,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
     return (
       <div className="flex items-center justify-center min-h-64 text-center text-gray-500 dark:text-gray-400">
         <div>
-          <div className="text-4xl mb-4 text-gray-400">📁</div>
+          <div className="mb-4 text-gray-400 flex justify-center"><FolderIcon /></div>
           <p className="text-lg mb-2">No data uploaded</p>
           <p className="text-sm">Upload a CSV, Parquet, or JSON file to see a preview</p>
         </div>

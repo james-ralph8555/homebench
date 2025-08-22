@@ -44,7 +44,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) =
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         disabled={disabled || isExporting || !query.trim()}
-        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-[120px]"
       >
         {isExporting ? (
           <>

@@ -7,6 +7,7 @@ import { Table as ArrowTable } from 'apache-arrow';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { ResultOptimizer, MemoryManager } from '@/lib/performanceUtils';
+import { ChartIcon } from './icons';
 
 interface ResultsGridProps {
   data: ArrowTable;
@@ -108,7 +109,9 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '' }
     return (
       <div className={`flex items-center justify-center h-64 border border-gray-300 dark:border-gray-600 rounded-lg ${className}`}>
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <div className="text-4xl mb-2 text-gray-400">📊</div>
+          <div className="mb-2 text-gray-400 flex justify-center">
+            <ChartIcon />
+          </div>
           <p>No data to display</p>
           <p className="text-sm">Run a query to see results here</p>
         </div>

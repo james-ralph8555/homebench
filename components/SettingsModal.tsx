@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MemoryUsageBar } from './MemoryUsageBar';
+import { TriangleIcon, BugIcon, RefreshIcon, FileIcon, FolderIcon, WarningIcon, SunIcon, MoonIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { 
   deleteDatabaseFromOPFS, 
@@ -55,29 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [opfsFiles, setOpfsFiles] = useState<OPFSFile[]>([]);
   const [showOpfsBrowser, setShowOpfsBrowser] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadOPFSInfo();
-      loadSavedQueries();
-    }
-  }, [isOpen]);
-
-  const loadOPFSInfo = async () => {
-    const supported = isOPFSSupported();
-    const fileSize = await getDatabaseFileSize();
-    setOpfsInfo({
-      supported,
-      fileSize,
-      fileExists: fileSize !== null,
-    });
-    
-    // Load OPFS files if supported
-    if (supported) {
-      await loadOPFSFiles();
-    }
-  };
-
-  const loadOPFSFiles = async () => {
+  const loadOPFSFiles = useCallback(async () => {
     if (!isOPFSSupported()) {
       setOpfsFiles([]);
       return;
@@ -121,9 +100,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       console.warn('Could not load OPFS files:', error);
       setOpfsFiles([]);
     }
-  };
+  }, []);
 
-  const loadSavedQueries = () => {
+  const loadOPFSInfo = useCallback(async () => {
+    const supported = isOPFSSupported();
+    const fileSize = await getDatabaseFileSize();
+    setOpfsInfo({
+      supported,
+      fileSize,
+      fileExists: fileSize !== null,
+    });
+    
+    // Load OPFS files if supported
+    if (supported) {
+      await loadOPFSFiles();
+    }
+  }, [loadOPFSFiles]);
+
+  const loadSavedQueries = useCallback(() => {
     try {
       const keys = Object.keys(localStorage).filter(key => 
         key.startsWith('homebench_query_') || key.startsWith('saved_query_')
@@ -133,7 +127,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       console.warn('Could not load saved queries:', error);
       setSavedQueries([]);
     }
-  };
+  }, []);
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -142,6 +136,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadOPFSInfo();
+      loadSavedQueries();
+    }
+  }, [isOpen, loadOPFSInfo, loadSavedQueries]);
 
   const handleDeleteTables = async () => {
     if (!deleteTablesCallback) return;
@@ -223,9 +224,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-gray-700 dark:text-gray-300">Theme</span>
               <button
                 onClick={onThemeToggle}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors inline-flex items-center space-x-2"
               >
-                {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+                {theme === 'dark' ? (
+                  <>
+                    <MoonIcon /> <span>Dark</span>
+                  </>
+                ) : (
+                  <>
+                    <SunIcon /> <span>Light</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -296,9 +305,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="pt-2 border-t border-gray-300 dark:border-gray-600">
                 <button
                   onClick={() => setShowOpfsBrowser(!showOpfsBrowser)}
-                  className="w-full text-left text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                  className="w-full text-left text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 inline-flex items-center"
                 >
-                  {showOpfsBrowser ? '🔽 Hide OPFS File Browser' : '🔽 Show OPFS File Browser'}
+                  <TriangleIcon className={`mr-1 transition-transform duration-200 ${showOpfsBrowser ? 'rotate-90' : 'rotate-0'}`} />
+                  {showOpfsBrowser ? 'Hide OPFS File Browser' : 'Show OPFS File Browser'}
                 </button>
               </div>
             </div>
@@ -314,15 +324,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         debugOPFS();
                         console.log('Check the console for detailed OPFS information');
                       }}
-                      className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300"
+                      className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 dark:bg-purple-900 dark:text-purple-300 inline-flex items-center space-x-1"
                     >
-                      🐛 Debug
+                      <BugIcon />
+                      <span>Debug</span>
                     </button>
                     <button
                       onClick={loadOPFSFiles}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 inline-flex items-center"
                     >
-                      🔄 Refresh
+                      <RefreshIcon className="mr-1" /> Refresh
                     </button>
                   </div>
                 </div>
@@ -337,8 +348,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div key={index} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                              <span className="text-lg">
-                                {file.type === 'directory' ? '📁' : '📄'}
+                              <span className="text-lg text-gray-600 dark:text-gray-300">
+                                {file.type === 'directory' ? <FolderIcon size={18} /> : <FileIcon size={18} />}
                               </span>
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                                 {file.name}
@@ -389,10 +400,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <button
                 onClick={handleDeleteAllData}
                 disabled={isLoading}
-                className="w-full text-left px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                className="w-full text-left px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 inline-flex items-start"
               >
-                <div className="font-medium">⚠️ Delete All Application Data</div>
-                <div className="text-sm opacity-75">Completely reset HomeBench (requires page refresh)</div>
+                <div className="mt-0.5 mr-2"><WarningIcon /></div>
+                <div>
+                  <div className="font-medium">Delete All Application Data</div>
+                  <div className="text-sm opacity-75">Completely reset HomeBench (requires page refresh)</div>
+                </div>
               </button>
             </div>
           </div>

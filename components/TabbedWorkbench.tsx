@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { FileUploader } from './FileUploader';
 import { DataPreview } from './DataPreview';
@@ -13,6 +14,7 @@ import { PersistencePanel } from './PersistencePanel';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
 import { MemoryUsageBar } from './MemoryUsageBar';
 import { SettingsModal } from './SettingsModal';
+import { GearIcon, TriangleIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
@@ -196,23 +198,29 @@ export const TabbedWorkbench: React.FC = () => {
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <header className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 relative">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2">HomeBench</h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Privacy-First SQL Workbench
-              </p>
+          <div className="space-y-2">
+            {/* Top row: logo + title on left, controls on right (stays a row on mobile) */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Image src="/logo.png" alt="HomeBench logo" width={32} height={32} className="rounded" />
+                <h1 className="text-2xl sm:text-3xl font-bold">HomeBench</h1>
+              </div>
+              <div className="flex items-center space-x-3">
+                {showMemoryBar && <MemoryUsageBar />}
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Settings"
+                  aria-label="Open settings"
+                >
+                  <GearIcon size={30} className="w-7 h-7 sm:w-8 sm:h-8 text-gray-700 dark:text-gray-300" />
+                </button>
+              </div>
             </div>
-            <div className="flex-shrink-0 flex items-center space-x-3">
-              {showMemoryBar && <MemoryUsageBar />}
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
-                title="Settings"
-              >
-                ⚙️
-              </button>
-            </div>
+            {/* Tagline under the row on all sizes */}
+            <p className="text-gray-600 dark:text-gray-400">
+              Privacy-by-Design SQL Workbench
+            </p>
           </div>
         </header>
 
@@ -274,8 +282,9 @@ export const TabbedWorkbench: React.FC = () => {
                       onClick={() => setIsSidebarCollapsed(true)}
                       className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                       title="Collapse sidebar"
+                      aria-label="Collapse sidebar"
                     >
-                      ◀
+                      <TriangleIcon className="transition-transform duration-200 rotate-180" />
                     </button>
                   </div>
                   
@@ -319,8 +328,9 @@ export const TabbedWorkbench: React.FC = () => {
                           onClick={() => setIsSidebarCollapsed(false)}
                           className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                           title="Expand sidebar"
+                          aria-label="Expand sidebar"
                         >
-                          ▶
+                          <TriangleIcon className="transition-transform duration-200" />
                         </button>
                       )}
                     </div>

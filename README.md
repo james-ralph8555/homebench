@@ -7,7 +7,7 @@
     </td>
     <td valign="middle">
       <p>
-        A privacy-first, in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.
+        A privacy-by-design in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.
       </p>
     </td>
   </tr>
@@ -15,7 +15,7 @@
 
 ## ✨ Features
 
-- **🔒 Privacy-First**: All data processing happens in your browser - nothing is sent to servers
+- **🔒 Privacy-by-Design**: All data processing happens in your browser - nothing is sent to servers
 - **⚡ High Performance**: Powered by DuckDB-WASM with connection pooling and query optimization
 - **📊 Rich Data Support**: Works with CSV, Parquet, and JSON files
 - **💾 Session Persistence**: Saves entire database snapshot to OPFS (includes uploaded data)
@@ -211,7 +211,7 @@ config.output.webassemblyModuleFilename = 'static/wasm/[modulehash].wasm';
 
 Below is an implementation audit against the Features and Usage described above. Items marked with a warning are partially implemented or differ from the description.
 
-- Privacy-first: Implemented. All work is in-browser; no server calls in app code.
+- Privacy-by-design: Implemented. All work is in-browser; no server calls in app code.
 - DuckDB-WASM: Implemented. Web Worker bundle selected at runtime and instantiated.
 - Rich data support: Implemented for CSV/Parquet/JSON via `read_*` helpers.
 - Export formats: Implemented for CSV/Parquet/JSON using `COPY (...) TO` and browser download.

@@ -1,7 +1,11 @@
-# HomeBench - Privacy-First In-Browser SQL Workbench
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# HomeBench - Privacy-by-Design In-Browser SQL Workbench
 
 ## Project Overview
-HomeBench is a privacy-first, analytical SQL workbench that runs entirely in the browser using DuckDB-WASM. No user data (files or queries) is ever transmitted to servers - all processing happens client-side.
+HomeBench is a privacy-by-design, analytical SQL workbench that runs entirely in the browser using DuckDB-WASM. No user data (files or queries) is ever transmitted to servers - all processing happens client-side.
 
 ## Architecture
 - **Frontend**: Next.js with TypeScript and TailwindCSS
@@ -20,7 +24,7 @@ The `.docs_for_ai/` directory contains reference documentation for:
 ### Setup
 ```bash
 npm install
-npm run dev
+npm run dev    # Starts with --turbopack for faster builds
 ```
 
 ### Build & Deploy
@@ -33,6 +37,12 @@ npm start
 ```bash
 npm run lint
 npm run typecheck
+```
+
+### Testing
+```bash
+npm test              # Run all tests once
+npm run test:watch    # Run tests in watch mode
 ```
 
 ## Core Features (Implemented)
@@ -84,16 +94,42 @@ npm run typecheck
 - **CORS-Only Remote**: Only HTTP-accessible data (with CORS headers)
 
 ## Testing
-Look for existing test scripts in package.json. Common patterns:
-- `npm test` or `npm run test`
-- `jest` for unit testing
-- `cypress` or `playwright` for e2e testing
+This project uses Vitest with jsdom environment for unit testing:
+- `npm test` - Run tests once
+- `npm run test:watch` - Run tests in watch mode
+- Tests are colocated with sources (e.g., `lib/*.test.ts`)
+- Coverage reports generated with v8 provider
+- Test setup in `test/setup.ts` includes fake-indexeddb and browser API polyfills
 
 ## Deployment
 Static files can be deployed to any CDN:
 - Vercel, Netlify, GitHub Pages
 - AWS S3 + CloudFront
 - Azure Static Web Apps
+
+## Key Code Architecture
+
+### Main Components
+- `DuckDBProvider` (`contexts/DuckDBContext.tsx`): Singleton DuckDB-WASM instance with OPFS persistence
+- `TabbedWorkbench` (`components/TabbedWorkbench.tsx`): Main UI orchestrating all features
+- `FileUploader` (`components/FileUploader.tsx`): File ingestion into DuckDB tables
+- `SQLEditor` (`components/SQLEditor.tsx`): CodeMirror-based SQL editor with debounced input
+- `ResultsGrid` (`components/ResultsGrid.tsx`): AG Grid virtualized results display
+- `SchemaExplorer` (`components/SchemaExplorer.tsx`): Database schema browser with caching
+- `PersistencePanel` (`components/PersistencePanel.tsx`): Session save/load management
+
+### Core Libraries  
+- `/lib/performanceUtils.ts`: Query optimization, connection pooling, performance analysis
+- `/lib/opfsUtils.ts`: Origin Private File System operations for database persistence
+- `/lib/persistence.ts`: Session save/load functionality
+- `/lib/exportUtils.ts`: Data export in multiple formats
+- `/lib/queryStore.ts`: Saved queries management with IndexedDB (Dexie)
+- `/lib/tableMetadataStore.ts`: Table metadata tracking with IndexedDB
+
+### Next.js Configuration
+- `next.config.js` enables `asyncWebAssembly` and configures webpack for DuckDB-WASM
+- Outputs WASM files to `static/wasm/` directory
+- Excludes DuckDB worker files on server-side rendering
 
 ## Future Enhancements
 - Multi-threading support when stable

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { TriangleIcon } from './icons';
 
 interface CollapsibleSidebarProps {
   title: string;
@@ -24,9 +25,11 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
         className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left flex items-center justify-between"
       >
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-        <span className="transition-transform duration-200">
-          {isExpanded ? '▼' : '◀'}
-        </span>
+        <TriangleIcon
+          className={`text-gray-700 dark:text-gray-300 transition-transform duration-200 ${
+            isExpanded ? 'rotate-90' : 'rotate-0'
+          }`}
+        />
       </button>
       
       <div className={`transition-all duration-200 overflow-hidden ${
