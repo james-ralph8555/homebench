@@ -9,21 +9,21 @@ interface DataPreviewProps {
 }
 
 export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
-  const { db, connectionPool } = useDuckDB();
+  const { db } = useDuckDB();
   const [previewData, setPreviewData] = useState<ArrowTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tableInfo, setTableInfo] = useState<{ rowCount: number; columns: any[] } | null>(null);
 
   const loadPreview = useCallback(async () => {
-    if (!tableName || !db || !connectionPool) return;
+    if (!tableName || !db) return;
 
     setIsLoading(true);
     setError(null);
 
     let connection = null;
     try {
-      connection = await connectionPool.getConnection(db);
+      connection = await db.connect();
 
       // Get table info
       const [countResult, columnsResult, sampleResult] = await Promise.all([
@@ -41,20 +41,20 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
       setError(err.message);
     } finally {
       if (connection) {
-        await connectionPool.releaseConnection(connection);
+        await connection.close();
       }
       setIsLoading(false);
     }
-  }, [tableName, db, connectionPool]);
+  }, [tableName, db]);
 
   useEffect(() => {
-    if (tableName && db && connectionPool) {
+    if (tableName && db) {
       loadPreview();
     } else {
       setPreviewData(null);
       setTableInfo(null);
     }
-  }, [tableName, db, connectionPool, loadPreview]);
+  }, [tableName, db, loadPreview]);
 
   if (!tableName) {
     return (

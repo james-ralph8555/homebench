@@ -12,6 +12,7 @@ import { SavedQueries } from './SavedQueries';
 import { PersistencePanel } from './PersistencePanel';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
 import { MemoryUsageBar } from './MemoryUsageBar';
+import { SettingsModal } from './SettingsModal';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
@@ -19,7 +20,7 @@ import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/pe
 type TabType = 'upload' | 'query';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, connectionPool } = useDuckDB();
+  const { db, isLoading, error: dbError } = useDuckDB();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
   const [results, setResults] = useState<ArrowTable | null>(null);
@@ -41,6 +42,11 @@ export const TabbedWorkbench: React.FC = () => {
     if (typeof window === 'undefined') return 'dark';
     const stored = localStorage.getItem('theme');
     return stored === 'dark' ? 'dark' : stored === 'light' ? 'light' : 'dark';
+  });
+  const [showMemoryBar, setShowMemoryBar] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('showMemoryBar');
+    return stored === 'true';
   });
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
@@ -66,8 +72,12 @@ export const TabbedWorkbench: React.FC = () => {
     try { localStorage.setItem('theme', theme); } catch {}
   }, [theme]);
 
+  React.useEffect(() => {
+    try { localStorage.setItem('showMemoryBar', String(showMemoryBar)); } catch {}
+  }, [showMemoryBar]);
+
   const executeQuery = async () => {
-    if (!db || !connectionPool) return;
+    if (!db) return;
     
     setIsQuerying(true);
     setError(null);
@@ -75,7 +85,7 @@ export const TabbedWorkbench: React.FC = () => {
 
     let connection = null;
     try {
-      connection = await connectionPool.getConnection(db);
+      connection = await db.connect();
       
       // Analyze query for performance hints
       const analysis = QueryOptimizer.analyzeQuery(sql);
@@ -118,8 +128,8 @@ export const TabbedWorkbench: React.FC = () => {
     } catch (e: any) {
       setError(e.message);
     } finally {
-      if (connection && connectionPool) {
-        await connectionPool.releaseConnection(connection);
+      if (connection) {
+        await connection.close();
       }
       setIsQuerying(false);
     }
@@ -172,7 +182,7 @@ export const TabbedWorkbench: React.FC = () => {
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold mb-2">Initializing DuckDB</h2>
+          <h2 className="text-xl font-semibold mb-2">Initializing HomeBench</h2>
           <p className="text-gray-600 dark:text-gray-400">
             Loading WebAssembly modules...
           </p>
@@ -194,40 +204,14 @@ export const TabbedWorkbench: React.FC = () => {
               </p>
             </div>
             <div className="flex-shrink-0 flex items-center space-x-3">
-              <MemoryUsageBar />
+              {showMemoryBar && <MemoryUsageBar />}
               <button
-                onClick={() => setShowSettings(s => !s)}
+                onClick={() => setShowSettings(true)}
                 className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
                 title="Settings"
               >
                 ⚙️
               </button>
-              {showSettings && (
-                <div className="absolute right-0 top-12 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-md z-50">
-                  <button
-                    onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Toggle Theme ({theme === 'dark' ? 'Dark' : 'Light'})
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!deleteTablesCallback) return;
-                      if (!confirm('Delete saved user tables? This cannot be undone.')) return;
-                      setIsDeletingTables(true);
-                      try {
-                        await deleteTablesCallback();
-                      } finally {
-                        setIsDeletingTables(false);
-                        setShowSettings(false);
-                      }
-                    }}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    {isDeletingTables ? 'Deleting…' : 'Delete Saved Tables'}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </header>
@@ -444,6 +428,17 @@ export const TabbedWorkbench: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        theme={theme}
+        onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+        showMemoryBar={showMemoryBar}
+        onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
+        deleteTablesCallback={deleteTablesCallback}
+      />
     </div>
   );
 };

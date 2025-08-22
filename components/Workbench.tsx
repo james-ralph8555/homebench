@@ -14,7 +14,7 @@ import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
 
 export const Workbench: React.FC = () => {
-  const { db, isLoading, error: dbError, connectionPool } = useDuckDB();
+  const { db, isLoading, error: dbError } = useDuckDB();
   const [sql, setSql] = useState<string>('-- Upload a file first, then write your query\n-- Example: SELECT * FROM "your_file.csv" LIMIT 10;');
   const [results, setResults] = useState<ArrowTable | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export const Workbench: React.FC = () => {
   const [queryMetrics, setQueryMetrics] = useState<{duration: number; memory?: number} | null>(null);
 
   const executeQuery = async () => {
-    if (!db || !connectionPool) return;
+    if (!db) return;
     
     setIsQuerying(true);
     setError(null);
@@ -33,7 +33,7 @@ export const Workbench: React.FC = () => {
 
     let connection = null;
     try {
-      connection = await connectionPool.getConnection(db);
+      connection = await db.connect();
       
       // Analyze query for performance hints
       const analysis = QueryOptimizer.analyzeQuery(sql);
@@ -76,8 +76,8 @@ export const Workbench: React.FC = () => {
     } catch (e: any) {
       setError(e.message);
     } finally {
-      if (connection && connectionPool) {
-        await connectionPool.releaseConnection(connection);
+      if (connection) {
+        await connection.close();
       }
       setIsQuerying(false);
     }
@@ -129,7 +129,7 @@ SELECT * FROM "${fileName}" LIMIT 10;`);
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold mb-2">Initializing DuckDB</h2>
+          <h2 className="text-xl font-semibold mb-2">Initializing HomeBench</h2>
           <p className="text-gray-600 dark:text-gray-400">
             Loading WebAssembly modules...
           </p>

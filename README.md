@@ -1,5 +1,10 @@
 # HomeBench
 
+<p align="center">
+  <img src="public/logo.png" alt="HomeBench logo" width="128" />
+  
+</p>
+
 A privacy-first, in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.
 
 ## ✨ Features
@@ -229,7 +234,17 @@ npm run build        # Build for production
 npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run typecheck    # Run TypeScript compiler check
+npm test             # Run unit tests (Vitest)
+npm run test:watch   # Watch mode for tests
 ```
+
+## 🧪 Testing
+
+This repo uses Vitest with a `jsdom` environment to unit test browser-facing utilities in `lib/` with minimal mocking.
+
+- Tests are colocated with sources (e.g., `lib/*.test.ts`).
+- `test/setup.ts` loads `fake-indexeddb/auto` and adds small polyfills (e.g., `URL.createObjectURL`).
+- Coverage reports are generated with the `v8` provider into `coverage/`.
 
 ## 📊 Performance Features
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePersistence } from '@/hooks/usePersistence';
+import { downloadSavedSessionAsDuckDB } from '@/lib/opfsUtils';
 
 interface PersistencePanelProps {
   onTablesLoaded?: () => void;
@@ -154,6 +155,26 @@ export const PersistencePanel: React.FC<PersistencePanelProps> = ({ onTablesLoad
               'Load Saved Session'
             )}
           </button>
+          <button
+            onClick={async () => {
+              try {
+                const existsNow = await checkSessionExists();
+                if (!existsNow) {
+                  setMessage('No saved session to download.');
+                  setTimeout(() => setMessage(''), 3000);
+                  return;
+                }
+                await downloadSavedSessionAsDuckDB();
+              } catch (error: any) {
+                setMessage(`Download failed: ${error.message}`);
+              }
+            }}
+            disabled={isLoading || !sessionExists}
+            title="Download saved session as DuckDB database"
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Download Session (.duckdb)
+          </button>
         </div>
 
         {lastSaved && (
@@ -170,15 +191,9 @@ export const PersistencePanel: React.FC<PersistencePanelProps> = ({ onTablesLoad
       </div>
 
       <div className="text-xs text-gray-500 dark:text-gray-400">
-        <p className="mb-1">
-          Saves the current database to an OPFS .duckdb file.
-        </p>
-        <p className="mb-1">
-          Data stays on your device; nothing leaves the browser.
-        </p>
-        <p>
-          Your data never leaves your device.
-        </p>
+        <p className="mb-1">Database persists automatically in your browser (OPFS).</p>
+        <p className="mb-1">Use Load to restore, or Download to export the .duckdb file.</p>
+        <p>Your data never leaves your device.</p>
       </div>
     </div>
   );

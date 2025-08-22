@@ -1,14 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { DB_FILE_NAME, checkOPFSDatabaseExists } from '@/lib/opfsUtils';
+import { DB_FILE_NAME, DB_VFS_PATH, checkOPFSDatabaseExists } from '@/lib/opfsUtils';
 
 // Define the shape of the context state
 interface DuckDBContextType {
   db: any | null; // Using any temporarily to avoid import issues
   isLoading: boolean;
   error: Error | null;
-  connectionPool: any | null; // Pool for reusing connections
 }
 
 // Create the context with a default undefined value
@@ -19,38 +18,12 @@ interface DuckDBProviderProps {
   children: ReactNode;
 }
 
-// Connection pool for performance
-class ConnectionPool {
-  private connections: any[] = [];
-  private maxSize = 3; // Max concurrent connections
-
-  async getConnection(db: any): Promise<any> {
-    if (this.connections.length > 0) {
-      return this.connections.pop();
-    }
-    return await db.connect();
-  }
-
-  async releaseConnection(connection: any): Promise<void> {
-    if (this.connections.length < this.maxSize) {
-      this.connections.push(connection);
-    } else {
-      await connection.close();
-    }
-  }
-
-  async closeAll(): Promise<void> {
-    await Promise.all(this.connections.map(conn => conn.close()));
-    this.connections = [];
-  }
-}
 
 // Create the provider component
 export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [db, setDb] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
-  const connectionPoolRef = useRef<ConnectionPool | null>(null);
 
   useEffect(() => {
     const instantiateDB = async () => {
@@ -68,28 +41,72 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         
         await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
         
-        // Initialize or load a file-backed database in the WASM VFS and tie it to OPFS
+        // Try to open a persistent database backed by OPFS using DuckDB's VFS
         try {
-          const exists = await checkOPFSDatabaseExists();
-          if (exists) {
-            await (dbInstance as any).open({
-              path: DB_FILE_NAME,
-              accessMode: (duckdb as any).DuckDBAccessMode?.READ_WRITE,
-            });
-            console.log(`Opened DuckDB from OPFS file: ${DB_FILE_NAME}`);
+          await dbInstance.open({
+            path: DB_VFS_PATH,
+            accessMode: duckdb.DuckDBAccessMode?.READ_WRITE || 1,
+          });
+          console.log(`Opened DuckDB with OPFS persistence at ${DB_VFS_PATH}`);
+        } catch (err: any) {
+          console.warn('Failed to open OPFS-backed DB:', err);
+          
+          // Check if it's a corruption error
+          const isCorruption = err?.message?.includes('not a valid DuckDB database file') ||
+                              err?.message?.includes('IO');
+          
+          if (isCorruption) {
+            console.warn('Database file appears corrupted, attempting aggressive recovery...');
+            try {
+              // Clean up corrupted files first (before terminating the instance)
+              const { deleteDatabaseFromOPFS } = await import('@/lib/opfsUtils');
+              await deleteDatabaseFromOPFS();
+              
+              // Terminate the current instance to release any locks
+              await dbInstance.terminate();
+              
+              // Wait a bit for cleanup to complete
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // Create a fresh DuckDB instance
+              const worker2 = await duckdb.createWorker(bundle.mainWorker!);
+              const logger2 = new duckdb.ConsoleLogger();
+              const freshDbInstance = new duckdb.AsyncDuckDB(logger2, worker2);
+              await freshDbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+              
+              // Try opening fresh database with new instance
+              await freshDbInstance.open({
+                path: DB_VFS_PATH,
+                accessMode: duckdb.DuckDBAccessMode?.READ_WRITE || 1,
+              });
+              
+              console.log(`✓ Recovered: Created fresh DuckDB with OPFS persistence at ${DB_VFS_PATH}`);
+              setDb(freshDbInstance);
+              return; // Exit early since we have a working instance
+            } catch (recoveryErr) {
+              console.warn('Aggressive recovery failed, creating fresh in-memory instance:', recoveryErr);
+              
+              // Create a completely fresh instance for in-memory use
+              try {
+                const worker3 = await duckdb.createWorker(bundle.mainWorker!);
+                const logger3 = new duckdb.ConsoleLogger();
+                const memoryDbInstance = new duckdb.AsyncDuckDB(logger3, worker3);
+                await memoryDbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+                // Don't call open() for in-memory database
+                console.log(`✓ Created fresh in-memory DuckDB instance`);
+                setDb(memoryDbInstance);
+                return;
+              } catch (memoryErr) {
+                console.error('Failed to create in-memory instance:', memoryErr);
+                // This will fall through to the original instance setup
+              }
+            }
           } else {
-            await (dbInstance as any).open({
-              path: DB_FILE_NAME,
-              accessMode: (duckdb as any).DuckDBAccessMode?.READ_WRITE,
-            });
-            console.log(`Initialized new DuckDB file in VFS: ${DB_FILE_NAME}`);
+            console.warn('Using in-memory DB instead');
+            // Don't throw - just use in-memory database
           }
-        } catch (err) {
-          console.warn('Failed to initialize file-backed DB; falling back to default in-memory DB.', err);
         }
         
-        // Initialize connection pool
-        connectionPoolRef.current = new ConnectionPool();
         
         setDb(dbInstance);
       } catch (e: any) {
@@ -108,9 +125,6 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     // Cleanup on unmount
     return () => {
       const cleanup = async () => {
-        if (connectionPoolRef.current) {
-          await connectionPoolRef.current.closeAll();
-        }
         if (db) {
           await db.terminate();
         }
@@ -119,7 +133,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     };
   }, []); // Empty dependency array to run only once
 
-  const value = { db, isLoading, error, connectionPool: connectionPoolRef.current };
+  const value = { db, isLoading, error };
 
   return (
     <DuckDBContext.Provider value={value}>

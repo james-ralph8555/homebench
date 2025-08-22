@@ -68,8 +68,8 @@ export const usePersistence = () => {
   }, []);
 
   const checkSessionExists = useCallback(async () => {
-    return await checkSessionExistsImpl();
-  }, []);
+    return await checkSessionExistsImpl(db);
+  }, [db]);
 
   const getSessionSize = useCallback(async () => {
     return await getSessionSizeImpl();

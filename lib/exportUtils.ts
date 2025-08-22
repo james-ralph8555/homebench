@@ -12,20 +12,32 @@ export async function exportQueryAsFile(
     // Generate a unique temporary filename
     const tempFileName = `export_${Date.now()}.${format.toLowerCase()}`;
     
-    // Build the COPY command based on format
     // Remove trailing semicolon from sqlQuery to avoid syntax errors
     const cleanQuery = sqlQuery.trim().replace(/;+$/, '');
+    
+    // Remove comments and check if the query contains non-SELECT statements
+    // These cannot be wrapped in COPY() syntax
+    const queryWithoutComments = cleanQuery.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    const isNonSelectQuery = /\b(CREATE|INSERT|UPDATE|DELETE|DROP|ALTER)\s+/i.test(queryWithoutComments);
+    
     let copyCommand = '';
-    switch (format) {
-      case 'CSV':
-        copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT CSV, HEADER);`;
-        break;
-      case 'PARQUET':
-        copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT PARQUET);`;
-        break;
-      case 'JSON':
-        copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT JSON);`;
-        break;
+    if (isNonSelectQuery) {
+      // For non-SELECT queries, execute them first, then we can't export their "results"
+      // Instead, we should throw an error or handle this case differently
+      throw new Error('Cannot export results of CREATE/INSERT/UPDATE/DELETE statements. Use SELECT queries to export data.');
+    } else {
+      // For SELECT queries, wrap in COPY
+      switch (format) {
+        case 'CSV':
+          copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT CSV, HEADER);`;
+          break;
+        case 'PARQUET':
+          copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT PARQUET);`;
+          break;
+        case 'JSON':
+          copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT JSON);`;
+          break;
+      }
     }
     
     await connection.query(copyCommand);
@@ -51,21 +63,47 @@ export async function exportQueryAsFile(
   }
 }
 
-// Function to export the entire database  
-export async function exportDatabase(db: any): Promise<void> {
+// Function to download the entire database as a .duckdb file
+export async function downloadDatabaseFile(db: any): Promise<void> {
   const connection = await db.connect();
   try {
-    const exportDir = 'database_export';
+    // Generate a unique temporary filename to avoid conflicts
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substr(2, 9);
+    const tempDbFile = `download_export_${timestamp}_${randomId}.duckdb`;
+
+    // Ensure any existing temp file is cleaned up first
+    try {
+      await db.dropFile(tempDbFile);
+    } catch {}
+
+    // Use VACUUM INTO to produce a full database snapshot as a valid .duckdb file
+    await connection.query(`VACUUM INTO '${tempDbFile}';`);
+
+    // Get the database file as a buffer
+    const buffer = await db.copyFileToBuffer(tempDbFile);
     
-    // Export the entire database to a directory
-    await connection.query(`EXPORT DATABASE '${exportDir}';`);
+    // Generate filename with timestamp
+    const fileTimestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const fileName = `homebench_database_${fileTimestamp}.duckdb`;
     
-    // Note: In a real implementation, you would need to zip the directory
-    // and download it. For now, we'll just show a message.
-    console.log('Database exported to virtual filesystem directory:', exportDir);
+    // Trigger browser download
+    const blob = new Blob([buffer]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     
-    // TODO: Implement directory zipping and download
-    alert('Database export feature will be available in a future update.');
+    // Clean up the temporary file
+    try {
+      await db.dropFile(tempDbFile);
+    } catch (e) {
+      console.warn('Failed to clean up temporary file:', tempDbFile, e);
+    }
   } finally {
     await connection.close();
   }

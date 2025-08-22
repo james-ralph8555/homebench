@@ -26,7 +26,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   onColumnSelect,
   refreshTrigger 
 }) => {
-  const { db, connectionPool } = useDuckDB();
+  const { db } = useDuckDB();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +34,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   const [schemaCache, setSchemaCache] = useState<Map<string, { data: TableInfo[], timestamp: number }>>(new Map());
 
   const loadSchema = useCallback(async () => {
-    if (!db || !connectionPool) return;
+    if (!db) return;
 
     // Check cache first (5 second cache)
     const cacheKey = 'schema';
@@ -50,7 +50,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
 
     let connection = null;
     try {
-      connection = await connectionPool.getConnection(db);
+      connection = await db.connect();
 
       // Get all tables with optimized query
       const tablesResult = await connection.query(`
@@ -125,12 +125,12 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
       console.error('Failed to load schema:', err);
       setError(err.message);
     } finally {
-      if (connection && connectionPool) {
-        await connectionPool.releaseConnection(connection);
+      if (connection) {
+        await connection.close();
       }
       setIsLoading(false);
     }
-  }, [db, connectionPool, schemaCache]);
+  }, [db, schemaCache]);
 
   useEffect(() => {
     if (db) {

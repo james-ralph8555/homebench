@@ -31,6 +31,8 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) =
     }
   };
 
+  // Database download moved to Session Storage panel
+
   const exportOptions: { format: ExportFormat; label: string; description: string }[] = [
     { format: 'CSV', label: 'CSV', description: 'Comma-separated values' },
     { format: 'PARQUET', label: 'Parquet', description: 'Columnar binary format' },
@@ -74,6 +76,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) =
                 </span>
               </button>
             ))}
+            {/* Database download option removed; available in Session Storage */}
           </div>
         </div>
       )}
