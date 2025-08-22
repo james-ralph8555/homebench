@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import {
-  saveSession as saveSessionImpl,
   loadSession as loadSessionImpl,
   checkSessionExists as checkSessionExistsImpl,
   deleteSession as deleteSessionImpl,
@@ -13,28 +12,10 @@ import { isOpfsSupported } from '@/lib/duckdbManager';
 
 export const usePersistence = () => {
   const { db } = useDuckDB();
-  const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  const saveSession = useCallback(async () => {
-    if (!db) {
-      throw new Error('Database not available');
-    }
-
-    setIsSaving(true);
-    try {
-      await saveSessionImpl(db);
-      setLastSaved(new Date());
-      return true;
-    } catch (error) {
-      console.error('Failed to save session:', error);
-      throw error;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [db]);
 
   const loadSession = useCallback(async () => {
     if (!db) {
@@ -87,13 +68,11 @@ export const usePersistence = () => {
   };
 
   return {
-    saveSession,
     loadSession,
     deleteSession,
     checkSessionExists,
     getSessionSize,
     formatFileSize,
-    isSaving,
     isDeleting,
     isLoading,
     lastSaved,

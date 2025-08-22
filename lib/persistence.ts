@@ -70,7 +70,8 @@ export async function checkSessionExists(db?: any): Promise<boolean> {
 }
 
 export async function deleteSession(): Promise<void> {
-  throw new Error('Session deletion functionality removed for fail-fast approach');
+  const { wipeOpfsData } = await import('./opfsUtils');
+  await wipeOpfsData();
 }
 
 export async function getSessionSize(): Promise<number | null> {

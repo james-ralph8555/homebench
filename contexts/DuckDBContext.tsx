@@ -9,6 +9,8 @@ interface DuckDBContextType {
   db: duckdb.AsyncDuckDB | null;
   isLoading: boolean;
   error: Error | null;
+  isSaving: boolean;
+  setSaving: (saving: boolean) => void;
 }
 
 // Create the context with a default undefined value
@@ -24,6 +26,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [db, setDb] = useState<duckdb.AsyncDuckDB | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
@@ -60,7 +63,13 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     };
   }, []); // Empty dependency array to run only once
 
-  const value = { db, isLoading, error };
+  const setSaving = (saving: boolean) => {
+    if (isMountedRef.current) {
+      setIsSaving(saving);
+    }
+  };
+
+  const value = { db, isLoading, error, isSaving, setSaving };
 
   return (
     <DuckDBContext.Provider value={value}>

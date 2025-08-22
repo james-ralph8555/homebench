@@ -158,15 +158,26 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
       if (opfsSupported && dbPath.startsWith('opfs://')) {
         console.log('Attempting to open OPFS database:', dbPath);
         await db.open({
-          path: 'opfs://homebench.db',
+          path: dbPath,
           accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
         });
-        console.log('OPFS database opened successfully');
+        
+        // Test write access by creating a simple checkpoint
+        const testConn = await db.connect();
+        try {
+          await testConn.query('CHECKPOINT');
+          console.log('OPFS database opened successfully with write access');
+        } catch (checkpointError) {
+          console.warn('OPFS database opened but checkpoint failed:', checkpointError);
+        } finally {
+          await testConn.close();
+        }
       } else {
         console.log('OPFS not supported or not requested, using in-memory database');
         actuallyUsingOpfs = false;
         await db.open({
           path: ':memory:',
+          accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
         });
       }
     } catch (error) {
@@ -174,6 +185,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
       actuallyUsingOpfs = false;
       await db.open({
         path: ':memory:',
+        accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
       });
     }
     
@@ -289,12 +301,27 @@ export class DuckDBManager {
   private registerShutdownHandlers(): void {
     const handleBeforeUnload = () => {
       if (this.dbState?.db) {
-        // Fire-and-forget checkpoint on page unload
-        this.checkpointDatabase().catch(console.error);
+        // Fire-and-forget checkpoint and flush on page unload
+        this.checkpointAndFlushDatabase().catch(console.error);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && this.dbState?.db) {
+        // Fire-and-forget flush when page becomes hidden
+        this.flushDatabase().catch(console.error);
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Periodic flush every 3 seconds as safety net
+    setInterval(() => {
+      if (this.dbState?.db) {
+        this.flushDatabase().catch(console.error);
+      }
+    }, 3000);
   }
 
   private async checkpointDatabase(): Promise<void> {
@@ -304,6 +331,32 @@ export class DuckDBManager {
     try {
       await connection.query('CHECKPOINT');
       console.log('✓ Database checkpointed');
+    } finally {
+      await connection.close();
+    }
+  }
+
+  private async flushDatabase(): Promise<void> {
+    if (!this.dbState?.db) return;
+    
+    try {
+      await this.dbState.db.flushFiles();
+      console.log('✓ Database flushed to OPFS');
+    } catch (error) {
+      console.warn('Failed to flush database:', error);
+    }
+  }
+
+  private async checkpointAndFlushDatabase(): Promise<void> {
+    if (!this.dbState?.db) return;
+    
+    const connection = await this.dbState.db.connect();
+    try {
+      await connection.query('CHECKPOINT');
+      await this.dbState.db.flushFiles();
+      console.log('✓ Database checkpointed and flushed to OPFS');
+    } catch (error) {
+      console.warn('Failed to checkpoint and flush database:', error);
     } finally {
       await connection.close();
     }

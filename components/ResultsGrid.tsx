@@ -129,17 +129,6 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '' }
           </span>
         </div>
         
-        {performanceConfig.warnMemory && (
-          <div className="text-xs text-orange-600 dark:text-orange-400">
-            Large dataset detected - using optimized rendering (page size: {performanceConfig.pageSize})
-          </div>
-        )}
-        
-        {performanceConfig.virtualize && (
-          <div className="text-xs text-blue-600 dark:text-blue-400">
-            Virtual scrolling enabled for better performance
-          </div>
-        )}
       </div>
       <div className="ag-theme-alpine" style={{ height: 500, width: '100%' }}>
         <AgGridReact {...gridOptions} />

@@ -24,21 +24,45 @@ export const executeDurableWrite = async (
   const connection = await db.connect();
   
   try {
+    // Start a transaction for write operations
+    await connection.query('BEGIN TRANSACTION;');
+    
     // Execute the write operation
     let result;
-    if (params.length > 0) {
-      const statement = await connection.prepare(query);
-      try {
-        result = await statement.query(...params);
-      } finally {
-        await statement.close();
+    try {
+      if (params.length > 0) {
+        const statement = await connection.prepare(query);
+        try {
+          result = await statement.query(...params);
+        } finally {
+          await statement.close();
+        }
+      } else {
+        result = await connection.query(query);
       }
-    } else {
-      result = await connection.query(query);
+      
+      // Commit the transaction
+      await connection.query('COMMIT;');
+      
+    } catch (error) {
+      // Rollback on error
+      try {
+        await connection.query('ROLLBACK;');
+      } catch (rollbackError) {
+        console.warn('Failed to rollback transaction:', rollbackError);
+      }
+      throw error;
     }
     
     // CRITICAL: Execute CHECKPOINT to ensure durability
     await connection.query('CHECKPOINT;');
+    
+    // CRITICAL: Flush to OPFS for persistent storage
+    try {
+      await db.flushFiles();
+    } catch (flushError) {
+      console.warn('Failed to flush to OPFS (data still saved):', flushError);
+    }
     
     const duration = performance.now() - startTime;
     
@@ -48,8 +72,21 @@ export const executeDurableWrite = async (
       duration
     };
     
+  } catch (error: any) {
+    const duration = performance.now() - startTime;
+    console.error(`Write operation failed after ${duration.toFixed(2)}ms:`, error);
+    
+    return {
+      success: false,
+      error: error.message || String(error),
+      duration
+    };
   } finally {
-    await connection.close();
+    try {
+      await connection.close();
+    } catch (closeError) {
+      console.warn('Failed to close connection:', closeError);
+    }
   }
 };
 
@@ -99,7 +136,7 @@ export const createTableFromFile = async (
     case 'json':
     case 'jsonl':
     case 'ndjson':
-      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_json_auto('${fileName}')`;
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_json_auto('${fileName}', maximum_object_size = 104857600)`;
       break;
     default:
       throw new Error(`Unsupported file extension: ${fileExtension}`);

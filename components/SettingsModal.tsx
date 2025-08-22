@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MemoryUsageBar } from './MemoryUsageBar';
 import { TriangleIcon, BugIcon, RefreshIcon, FileIcon, FolderIcon, WarningIcon, SunIcon, MoonIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
-import { getDatabaseFileSize } from '@/lib/opfsUtils';
+import { getDatabaseFileSize, wipeOpfsData, downloadSavedSessionAsDuckDB } from '@/lib/opfsUtils';
 import { isOpfsSupported } from '@/lib/duckdbManager';
 
 interface SettingsModalProps {
@@ -14,7 +14,6 @@ interface SettingsModalProps {
   onThemeToggle: () => void;
   showMemoryBar: boolean;
   onMemoryBarToggle: () => void;
-  deleteTablesCallback?: (() => Promise<void>) | null;
 }
 
 interface OPFSInfo {
@@ -37,7 +36,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onThemeToggle,
   showMemoryBar,
   onMemoryBarToggle,
-  deleteTablesCallback,
 }) => {
   const { db } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
@@ -138,14 +136,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, loadOPFSInfo, loadSavedQueries]);
 
-  const handleDeleteTables = async () => {
-    if (!deleteTablesCallback) return;
-    if (!confirm('Delete all saved tables? This action cannot be undone.')) return;
+  const handleWipeOpfs = async () => {
+    if (!confirm('Wipe all OPFS data? This will delete the entire database and cannot be undone. The page will reload after wiping.')) return;
     
     setIsLoading(true);
     try {
-      await deleteTablesCallback();
+      await wipeOpfsData();
       await loadOPFSInfo(); // Refresh OPFS info and files
+      // Reload the page to reinitialize with clean OPFS
+      window.location.reload();
+    } catch (error: any) {
+      alert(`Failed to wipe OPFS: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownloadSession = async () => {
+    try {
+      setIsLoading(true);
+      await downloadSavedSessionAsDuckDB();
+    } catch (error: any) {
+      alert(`Failed to download session: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -167,7 +179,64 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleDeleteAllData = async () => {
-    alert('Data deletion functionality removed. Please refresh the page or clear browser data manually.');
+    if (!confirm('Delete ALL application data including database, saved queries, and settings? This cannot be undone and will reload the page.')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // 1. Wipe OPFS data (database)
+      try {
+        await wipeOpfsData();
+        console.log('✓ OPFS data wiped');
+      } catch (error) {
+        console.warn('Failed to wipe OPFS:', error);
+      }
+      
+      // 2. Clear all localStorage (saved queries, preferences)
+      try {
+        localStorage.clear();
+        console.log('✓ LocalStorage cleared');
+      } catch (error) {
+        console.warn('Failed to clear localStorage:', error);
+      }
+      
+      // 3. Clear sessionStorage
+      try {
+        sessionStorage.clear();
+        console.log('✓ SessionStorage cleared');
+      } catch (error) {
+        console.warn('Failed to clear sessionStorage:', error);
+      }
+      
+      // 4. Clear IndexedDB (if any)
+      try {
+        const databases = await indexedDB.databases();
+        await Promise.all(
+          databases.map(db => {
+            if (db.name) {
+              const deleteReq = indexedDB.deleteDatabase(db.name);
+              return new Promise<void>((resolve, reject) => {
+                deleteReq.onsuccess = () => resolve();
+                deleteReq.onerror = () => reject(deleteReq.error);
+              });
+            }
+          })
+        );
+        console.log('✓ IndexedDB databases cleared');
+      } catch (error) {
+        console.warn('Failed to clear IndexedDB:', error);
+      }
+      
+      console.log('✓ All application data deleted successfully');
+      
+      // Reload the page to reinitialize everything
+      window.location.reload();
+    } catch (error: any) {
+      alert(`Failed to delete all data: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -350,12 +419,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Data Management</h3>
             <div className="space-y-3">
               <button
-                onClick={handleDeleteTables}
-                disabled={isLoading || !deleteTablesCallback}
-                className="w-full text-left px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors disabled:opacity-50"
+                onClick={handleDownloadSession}
+                disabled={isLoading || !opfsInfo.fileExists}
+                className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-50"
               >
-                <div className="font-medium">Delete All Saved Tables</div>
-                <div className="text-sm opacity-75">Remove all tables from the database</div>
+                <div className="font-medium">Download Session Database</div>
+                <div className="text-sm opacity-75">Export the complete .duckdb file</div>
+              </button>
+
+              <button
+                onClick={handleWipeOpfs}
+                disabled={isLoading || !opfsInfo.supported}
+                className="w-full text-left px-4 py-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 inline-flex items-start"
+              >
+                <div className="mt-0.5 mr-2"><WarningIcon /></div>
+                <div>
+                  <div className="font-medium">Wipe OPFS Data</div>
+                  <div className="text-sm opacity-75">Delete all database files from browser storage</div>
+                </div>
               </button>
 
               <button

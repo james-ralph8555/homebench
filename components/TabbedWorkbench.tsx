@@ -10,7 +10,6 @@ import { ResultsGrid } from './ResultsGrid';
 import { ExportButton } from './ExportButton';
 import { SchemaExplorer } from './SchemaExplorer';
 import { SavedQueries } from './SavedQueries';
-import { PersistencePanel } from './PersistencePanel';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
 import { MemoryUsageBar } from './MemoryUsageBar';
 import { SettingsModal } from './SettingsModal';
@@ -19,11 +18,13 @@ import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
+import { usePersistence } from '@/hooks/usePersistence';
 
 type TabType = 'upload' | 'query';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving } = useDuckDB();
+  const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
   const [results, setResults] = useState<ArrowTable | null>(null);
@@ -36,11 +37,9 @@ export const TabbedWorkbench: React.FC = () => {
   const [previewTable, setPreviewTable] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [saveQueryCallback, setSaveQueryCallback] = useState<(() => void) | null>(null);
-  const [saveTablesCallback, setSaveTablesCallback] = useState<(() => Promise<void>) | null>(null);
-  const [deleteTablesCallback, setDeleteTablesCallback] = useState<(() => Promise<void>) | null>(null);
-  const [isSavingTables, setIsSavingTables] = useState(false);
-  const [isDeletingTables, setIsDeletingTables] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState<string>('');
+  const [autoLoaded, setAutoLoaded] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'dark';
     const stored = localStorage.getItem('theme');
@@ -56,16 +55,6 @@ export const TabbedWorkbench: React.FC = () => {
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
     setSaveQueryCallback(() => cb);
   }, []);
-  // Accept a void callback from child and adapt to Promise<void>
-  const handleSaveTablesCallbackChange = useCallback((cb: () => void) => {
-    setSaveTablesCallback(() => async () => {
-      // Normalize any return type to a promise to simplify callers
-      await Promise.resolve(cb());
-    });
-  }, []);
-  const handleDeleteTablesCallbackChange = useCallback((cb: () => Promise<void>) => {
-    setDeleteTablesCallback(() => cb);
-  }, []);
 
   React.useEffect(() => {
     const root = typeof document !== 'undefined' ? document.documentElement : null;
@@ -78,6 +67,28 @@ export const TabbedWorkbench: React.FC = () => {
   React.useEffect(() => {
     try { localStorage.setItem('showMemoryBar', String(showMemoryBar)); } catch {}
   }, [showMemoryBar]);
+
+  // Auto-load session on component mount
+  React.useEffect(() => {
+    const checkAndLoadSession = async () => {
+      if (!db || !isSupported || autoLoaded) return;
+      
+      try {
+        const exists = await checkSessionExists();
+        if (exists) {
+          await loadSession();
+          setAutoLoaded(true);
+          setRestoreMessage('Restored your saved session from previous visit');
+          setSchemaRefreshTrigger(prev => prev + 1); // Refresh schema
+          setTimeout(() => setRestoreMessage(''), 5000);
+        }
+      } catch (error: any) {
+        console.warn('Failed to auto-load session:', error);
+      }
+    };
+
+    checkAndLoadSession();
+  }, [db, isSupported, autoLoaded, checkSessionExists, loadSession]);
 
   const executeQuery = async () => {
     if (!db) return;
@@ -288,13 +299,6 @@ export const TabbedWorkbench: React.FC = () => {
                     />
                   </CollapsibleSidebar>
 
-                  <CollapsibleSidebar title="Session Storage" defaultExpanded={true}>
-                    <PersistencePanel 
-                      onTablesLoaded={() => setSchemaRefreshTrigger(prev => prev + 1)}
-                      onSaveCallbackChange={handleSaveTablesCallbackChange}
-                      onDeleteCallbackChange={handleDeleteTablesCallbackChange}
-                    />
-                  </CollapsibleSidebar>
                 </div>
               </div>
             )}
@@ -318,53 +322,45 @@ export const TabbedWorkbench: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                      <button
-                        onClick={async () => {
-                          if (!saveTablesCallback || isSavingTables) return;
-                          setIsSavingTables(true);
-                          try {
-                            await saveTablesCallback();
-                          } finally {
-                            setIsSavingTables(false);
-                          }
-                        }}
-                        disabled={isSavingTables}
-                        className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {isSavingTables ? (
-                          <span className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Saving...
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                      <div className="text-sm">
+                        {restoreMessage ? (
+                          <span className="text-blue-600 dark:text-blue-400">{restoreMessage}</span>
+                        ) : isSaving ? (
+                          <span className="flex items-center text-blue-600 dark:text-blue-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                            Saving…
                           </span>
                         ) : (
-                          'Save Tables'
+                          <span className="text-green-600 dark:text-green-400">All changes saved</span>
                         )}
-                      </button>
-                      <button
-                        onClick={() => saveQueryCallback?.()}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                      >
-                        Save Current
-                      </button>
-                      <button
-                        onClick={executeQuery}
-                        disabled={isQuerying || !db}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {isQuerying ? (
-                          <span className="flex items-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Running...
-                          </span>
-                        ) : (
-                          'Run Query'
-                        )}
-                      </button>
-                      <ExportButton 
-                        query={sql} 
-                        disabled={!results || isQuerying}
-                      />
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => saveQueryCallback?.()}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                        >
+                          Save Current
+                        </button>
+                        <button
+                          onClick={executeQuery}
+                          disabled={isQuerying || !db}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isQuerying ? (
+                            <span className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Running...
+                            </span>
+                          ) : (
+                            'Run Query'
+                          )}
+                        </button>
+                        <ExportButton 
+                          query={sql} 
+                          disabled={!results || isQuerying}
+                        />
+                      </div>
                     </div>
                   </div>
                   <SQLEditor value={sql} onChange={setSql} />
@@ -431,7 +427,6 @@ export const TabbedWorkbench: React.FC = () => {
         onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         showMemoryBar={showMemoryBar}
         onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
-        deleteTablesCallback={deleteTablesCallback}
       />
     </div>
   );

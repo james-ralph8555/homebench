@@ -69,7 +69,7 @@ HomeBench is a client-only Next.js application that runs DuckDB entirely in the 
 flowchart LR
   A[UI Components\nNext.js + React] -->|queries| B(DuckDB-WASM\nWeb Worker)
   B -->|"results (Arrow)"| A
-  A -->|"save/load"| C[OPFS\n.homebench_session.duckdb]
+  A -->|"auto-save/restore"| C[OPFS\nhomebench.db]
   A -->|"saved queries"| D[IndexedDB\nDexie]
   A -->|metadata| E[IndexedDB\nTable Metadata]
   A -->|"file handles"| F[(Browser File APIs)]
@@ -127,32 +127,43 @@ Query path
 ```mermaid
 sequenceDiagram
   participant UI as SQLEditor/TabbedWorkbench
-  participant Pool as ConnectionPool
   participant DB as DuckDB-WASM
   UI->>UI: analyzeQuery(sql) + optimizeQuery(sql)
-  UI->>Pool: getConnection()
-  Pool->>DB: connect()
+  UI->>DB: connect()
   UI->>DB: query(optimizedSql)
   DB-->>UI: Arrow Table
-  UI->>Pool: releaseConnection(conn)
+  UI->>DB: close()
   UI-->>UI: render ResultsGrid + metrics
 ```
 
-Persistence path (current)
+Persistence path (auto-save)
 ```mermaid
 sequenceDiagram
-  participant UI as PersistencePanel
-  participant Hook as usePersistence
-  participant OPFS as OPFS .duckdb file
+  participant UI as SQLEditor/FileUploader
+  participant Ops as DurableOps
   participant DB as DuckDB-WASM
+  participant OPFS as OPFS homebench.db
+  participant Mgr as DuckDBManager
 
-  UI->>Hook: saveSession()
-  Hook->>DB: CHECKPOINT (best-effort)
-  Hook->>OPFS: write copy of DB file
-  Note over Hook,OPFS: Saves entire DB file snapshot
-  UI->>Hook: loadSession()
-  Hook->>OPFS: read DB file
-  Hook->>DB: copyBufferToFile + open
+  UI->>Ops: execute write (INSERT/CREATE/...)
+  Ops->>DB: query(sql)
+  Ops->>DB: CHECKPOINT
+  Ops->>DB: flushFiles()
+  DB-->>OPFS: persist changes
+  Note over Ops,OPFS: Auto-save after each write
+
+  Mgr->>DB: flushFiles() every 3s, on hide/unload
+  DB-->>OPFS: persist changes
+  Note over Mgr,OPFS: Background durability
+
+  UI->>UI: app mount
+  UI->>Ops: checkSessionExists()
+  Ops->>DB: inspect main tables
+  alt tables exist
+    UI->>Ops: loadSession()
+    Ops->>DB: CHECKPOINT (best-effort)
+    UI-->>UI: refresh schema
+  end
 ```
 
 ## 📖 Usage
@@ -222,8 +233,7 @@ Below is an implementation audit against the Features and Usage described above.
 - Performance monitoring: Query duration + memory delta shown; MemoryUsageBar included.
 - Session persistence: Implemented. Saves/loads the entire DuckDB database file to/from OPFS.
 - Zero-copy file ingestion: Not implemented. Uploads are copied into DuckDB tables via `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*('file')`.
-- Automatic session save: Not implemented. There is optional auto-load on first visit if a saved DB file exists; saving is user-initiated via button.
-- Architecture guide (`ARCH.md`): Missing. README references it, but the file is not present.
+- Automatic session save: Implemented. Write operations trigger CHECKPOINT + flush to OPFS; background flush runs periodically and on hide/unload. Auto-load occurs on first visit if a saved DB exists.
 
 ### Notable Implementation Gaps / Bugs
 - Removed the legacy floating performance monitor widget.
@@ -310,6 +320,5 @@ Note: HomeBench automatically optimizes queries and provides performance warning
 
 ## 📚 Learn More
 
-- Architecture Guide: Coming soon (README now includes diagrams above)
 - DuckDB Documentation: https://duckdb.org/docs/
 - Next.js Documentation: https://nextjs.org/docs

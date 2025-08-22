@@ -19,7 +19,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
 
   const handleFileUpload = async (file: File) => {
     if (!db) {
-      setMessage('Database not initialized.');
+      setMessage('Database not initialized. Please refresh the page.');
       return;
     }
 
@@ -27,10 +27,32 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     const startTime = performance.now();
     
     try {
+      setMessage(`Preparing to upload ${file.name}...`);
+      
+      // Validate file size (4GB limit for WebAssembly)
+      if (file.size > 4 * 1024 * 1024 * 1024) {
+        throw new Error('File too large. Maximum file size is 4GB due to WebAssembly limitations.');
+      }
+      
+      // Validate file type
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+      if (!['csv', 'parquet', 'json', 'jsonl', 'ndjson'].includes(fileExt)) {
+        throw new Error(`Unsupported file type: ${fileExt}. Supported types: CSV, Parquet, JSON`);
+      }
+      
+      
       setMessage(`Registering file: ${file.name}...`);
       
       // Dynamic import to get DuckDB constants
       const duckdb = await import('@duckdb/duckdb-wasm');
+      
+      // Check if file is already registered and unregister it
+      try {
+        await db.dropFile(file.name);
+        console.log(`🧽 Dropped existing file registration: ${file.name}`);
+      } catch {
+        // File wasn't registered, that's fine
+      }
       
       // Register the file handle with DuckDB
       await db.registerFileHandle(
@@ -42,27 +64,39 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
       
       setMessage(`Creating table from ${file.name}...`);
       
+      // Use sanitized table name (remove file extension and special chars)
+      const tableName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_');
+      
       // Use durable operation to create table with guaranteed persistence
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-      const result = await createTableFromFile(file.name, file.name, fileExt);
+      const result = await createTableFromFile(tableName, file.name, fileExt);
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to create table from file');
       }
 
       // Mark this table as an uploaded file in metadata store
-      await markTableAsUploaded(file.name, file.name);
+      await markTableAsUploaded(tableName, file.name);
 
       const duration = performance.now() - startTime;
       const rowsText = result.rowsAffected ? ` (${result.rowsAffected} rows)` : '';
       
-      setMessage(`✅ Successfully loaded ${file.name} as a table${rowsText} in ${duration.toFixed(0)}ms`);
-      console.log(`📊 Table "${file.name}" created with durable persistence in ${duration.toFixed(2)}ms`);
+      setMessage(`✅ Successfully loaded ${file.name} as table "${tableName}"${rowsText} in ${duration.toFixed(0)}ms`);
+      console.log(`📊 Table "${tableName}" created from ${file.name} with durable persistence in ${duration.toFixed(2)}ms`);
       
-      onFileUploaded?.(file.name);
+      onFileUploaded?.(tableName);
     } catch (e: any) {
       const duration = performance.now() - startTime;
-      const errorMsg = `Error loading ${file.name}: ${e.message}`;
+      let errorMsg = `Error loading ${file.name}: ${e.message}`;
+      
+      // Provide helpful error messages for common issues
+      if (e.message.includes('TransactionContext')) {
+        errorMsg = `Database transaction error with ${file.name}. Try refreshing the page and uploading again.`;
+      } else if (e.message.includes('maximum_object_size')) {
+        errorMsg = `File ${file.name} is too large for DuckDB to process. Try a smaller file or convert to Parquet format.`;
+      } else if (e.message.includes('File is not opened in write mode')) {
+        errorMsg = `Database connection error. Please refresh the page and try uploading ${file.name} again.`;
+      }
+      
       setMessage(errorMsg);
       console.error(`❌ File upload failed after ${duration.toFixed(2)}ms:`, e);
     } finally {
