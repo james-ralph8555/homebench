@@ -1,11 +1,17 @@
 # HomeBench
 
-<p align="center">
-  <img src="public/logo.png" alt="HomeBench logo" width="128" />
-  
-</p>
-
-A privacy-first, in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.
+<table>
+  <tr>
+    <td width="140" valign="middle">
+      <img src="public/logo.png" alt="HomeBench logo" width="128" />
+    </td>
+    <td valign="middle">
+      <p>
+        A privacy-first, in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.
+      </p>
+    </td>
+  </tr>
+  </table>
 
 ## ✨ Features
 
