@@ -63,7 +63,6 @@ npm run test:watch    # Run tests in watch mode
 - Configure Next.js webpack for WebAssembly support
 
 ### Performance Optimizations
-- **Connection Pool**: Reuse DuckDB connections with configurable pool size
 - **Query Optimization**: Automatic LIMIT injection for unbounded SELECT queries
 - **Memory Management**: Real-time memory usage monitoring and warnings
 - **Virtualization**: Row/column virtualization for large datasets in AG Grid
@@ -119,7 +118,7 @@ Static files can be deployed to any CDN:
 - `PersistencePanel` (`components/PersistencePanel.tsx`): Session save/load management
 
 ### Core Libraries  
-- `/lib/performanceUtils.ts`: Query optimization, connection pooling, performance analysis
+- `/lib/performanceUtils.ts`: Query optimization and performance analysis
 - `/lib/opfsUtils.ts`: Origin Private File System operations for database persistence
 - `/lib/persistence.ts`: Session save/load functionality
 - `/lib/exportUtils.ts`: Data export in multiple formats

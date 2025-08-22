@@ -104,30 +104,7 @@ export const MemoryManager = {
   }
 };
 
-// Connection pool utilities
-export const ConnectionUtils = {
-  // Determine optimal connection pool size based on browser
-  getOptimalPoolSize: (): number => {
-    // Check available memory and CPU cores
-    const memory = (navigator as any).deviceMemory || 4; // GB, fallback to 4GB
-    const cores = navigator.hardwareConcurrency || 4;
-    
-    // Conservative approach: 1 connection per 2GB RAM, max 4
-    return Math.min(Math.max(Math.floor(memory / 2), 1), 4);
-  },
 
-  // Check if browser supports advanced features
-  getBrowserCapabilities: () => {
-    return {
-      webAssembly: typeof WebAssembly !== 'undefined',
-      sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-      offscreenCanvas: typeof OffscreenCanvas !== 'undefined',
-      serviceWorker: 'serviceWorker' in navigator,
-      opfs: 'storage' in navigator && 'getDirectory' in navigator.storage,
-      webWorkers: typeof Worker !== 'undefined',
-    };
-  }
-};
 
 // Debounce utilities for UI performance
 export const debounce = <T extends (...args: any[]) => any>(

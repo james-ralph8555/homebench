@@ -16,7 +16,7 @@
 ## ✨ Features
 
 - **🔒 Privacy-by-Design**: All data processing happens in your browser - nothing is sent to servers
-- **⚡ High Performance**: Powered by DuckDB-WASM with connection pooling and query optimization
+ - **⚡ High Performance**: Powered by DuckDB-WASM with query optimization
 - **📊 Rich Data Support**: Works with CSV, Parquet, and JSON files
 - **💾 Session Persistence**: Saves entire database snapshot to OPFS (includes uploaded data)
 - **🌐 Serverless**: Deploy as static files to any CDN
@@ -89,7 +89,7 @@ Notes:
 graph TD
   subgraph App
     RootLayout --> DuckDBProvider
-    DuckDBProvider -->|db + pool| TabbedWorkbench
+    DuckDBProvider -->|db| TabbedWorkbench
     TabbedWorkbench --> FileUploader
     TabbedWorkbench --> SQLEditor
     TabbedWorkbench --> ResultsGrid
@@ -190,7 +190,7 @@ homebench/
 
 ### Key Components
 
-- `DuckDBProvider`: Manages the DuckDB-WASM instance with connection pooling
+- `DuckDBProvider`: Manages the DuckDB-WASM instance
 - `FileUploader`: Ingests local files by copying them into DuckDB tables
 - `SQLEditor`: CodeMirror-based SQL editor with debounced input and performance hints
 - `Workbench`: Main query interface with automatic optimization and metrics
@@ -227,7 +227,6 @@ Below is an implementation audit against the Features and Usage described above.
 - Rich data support: Implemented for CSV/Parquet/JSON via `read_*` helpers.
 - Export formats: Implemented for CSV/Parquet/JSON using `COPY (...) TO` and browser download.
 - Schema Explorer: Implemented with parallel info loading and a short in-memory cache (≈5s).
-- Connection pooling: Implemented with a fixed-size pool (size=3). No dynamic sizing yet.
 - Query auto-optimization: Implemented (auto LIMIT injection + basic hints panel).
 - Results virtualization/pagination: Implemented via AG Grid with heuristics.
 - Performance monitoring: Query duration + memory delta shown; MemoryUsageBar included.
@@ -237,10 +236,8 @@ Below is an implementation audit against the Features and Usage described above.
 
 ### Notable Implementation Gaps / Bugs
 - Removed the legacy floating performance monitor widget.
-- Connection pool sizing: `ConnectionPool` is fixed at 3; `lib/performanceUtils.ConnectionUtils.getOptimalPoolSize()` exists and could be applied during provider setup.
 
 ### Suggested Next Steps
-- Consider using `ConnectionUtils.getOptimalPoolSize()` when creating the pool.
 
 ## 🔧 Available Scripts
 
@@ -268,7 +265,6 @@ HomeBench includes comprehensive performance optimizations:
 
 ### Automatic Optimizations
 - **Query Auto-Optimization**: Automatically adds LIMIT clauses to unbounded SELECT queries
-- **Connection Pooling**: Reuses DuckDB connections for better performance
 - **Memory Management**: Real-time monitoring with warnings for large datasets
 - **Virtualization**: Row/column virtualization for handling large result sets
 

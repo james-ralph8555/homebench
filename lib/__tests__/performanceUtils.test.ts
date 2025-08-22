@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   QueryOptimizer,
   MemoryManager,
-  ConnectionUtils,
   debounce,
   throttle,
   PerformanceMonitor,
@@ -69,30 +68,7 @@ describe('performanceUtils: MemoryManager', () => {
   });
 });
 
-describe('performanceUtils: ConnectionUtils', () => {
-  const originalNavigator = globalThis.navigator;
-  beforeEach(() => {
-    Object.defineProperty(globalThis, 'navigator', {
-      value: { hardwareConcurrency: 8, deviceMemory: 8 },
-      configurable: true,
-    });
-  });
-  afterEach(() => {
-    Object.defineProperty(globalThis, 'navigator', { value: originalNavigator, configurable: true });
-  });
 
-  it('computes optimal pool size using deviceMemory', () => {
-    expect(ConnectionUtils.getOptimalPoolSize()).toBe(4);
-    Object.defineProperty(globalThis, 'navigator', { value: { deviceMemory: 1, hardwareConcurrency: 2 }, configurable: true });
-    expect(ConnectionUtils.getOptimalPoolSize()).toBe(1);
-  });
-
-  it('reports browser capabilities', () => {
-    const caps = ConnectionUtils.getBrowserCapabilities();
-    expect(typeof caps.webAssembly).toBe('boolean');
-    expect(typeof caps.webWorkers).toBe('boolean');
-  });
-});
 
 describe('performanceUtils: debounce/throttle', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -167,4 +143,3 @@ describe('performanceUtils: ResultOptimizer', () => {
     expect(ResultOptimizer.shouldVirtualize(10, 10)).toBe(false);
   });
 });
-
