@@ -70,12 +70,6 @@ export function isOpfsSupported(): boolean {
   
   const supported = hasNavigator && hasStorage && hasGetDirectory;
   
-  console.log('OPFS detection details:', {
-    hasNavigator,
-    hasStorage,
-    hasGetDirectory,
-    supported
-  });
   
   return supported;
 }

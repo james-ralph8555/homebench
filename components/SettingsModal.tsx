@@ -348,13 +348,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <h4 className="font-medium text-gray-900 dark:text-gray-100">OPFS Files</h4>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => console.log('Debug functionality removed for fail-fast approach')}
-                      className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 dark:bg-gray-900 dark:text-gray-300 inline-flex items-center space-x-1"
-                    >
-                      <BugIcon />
-                      <span>Debug (Disabled)</span>
-                    </button>
-                    <button
                       onClick={loadOPFSFiles}
                       className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 inline-flex items-center"
                     >

@@ -99,7 +99,6 @@ export const MemoryUsageBar: React.FC = () => {
       <div className="flex items-center space-x-2 text-xs text-gray-500">
         <span>Memory monitoring unavailable</span>
         <span className="text-orange-500" title="Performance.memory API not available in this browser">⚠️</span>
-        <span className="text-xs">(4GB WASM limit)</span>
       </div>
     );
   }
@@ -111,7 +110,6 @@ export const MemoryUsageBar: React.FC = () => {
           <span className="hidden sm:inline">Memory: </span>
           <span className="sm:hidden">RAM: </span>
           {MemoryManager.formatMemorySize(memoryInfo.used)} / {MemoryManager.formatMemorySize(memoryInfo.wasmLimit)}
-          <span className="text-xs text-gray-500 ml-1">(4GB limit)</span>
         </span>
         <div className="w-full sm:w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
