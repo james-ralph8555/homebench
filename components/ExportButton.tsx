@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { exportQueryAsFile, suggestFileName, ExportFormat } from '@/lib/exportUtils';
+import { Button } from '@/components/ui/Button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/DropdownMenu';
 
 interface ExportButtonProps {
   query: string;
@@ -12,13 +14,11 @@ interface ExportButtonProps {
 export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) => {
   const { db } = useDuckDB();
   const [isExporting, setIsExporting] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   const handleExport = async (format: ExportFormat) => {
     if (!db || !query.trim()) return;
 
     setIsExporting(true);
-    setShowDropdown(false);
 
     try {
       const fileName = suggestFileName(query, format);
@@ -40,54 +40,33 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) =
   ];
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        disabled={disabled || isExporting || !query.trim()}
-        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-[120px]"
-      >
-        {isExporting ? (
-          <>
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            Exporting...
-          </>
-        ) : (
-          <>
-            Export
-            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </>
-        )}
-      </button>
-
-      {showDropdown && !disabled && !isExporting && (
-        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-10">
-          <div className="py-1">
-            {exportOptions.map((option) => (
-              <button
-                key={option.format}
-                onClick={() => handleExport(option.format)}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex flex-col"
-              >
-                <span className="font-medium">{option.label}</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {option.description}
-                </span>
-              </button>
-            ))}
-            {/* Database download option removed; available in Session Storage */}
-          </div>
-        </div>
-      )}
-
-      {/* Backdrop to close dropdown */}
-      {showDropdown && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowDropdown(false)}
-        />
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="secondary"
+          disabled={disabled || isExporting || !query.trim()}
+          className="w-[120px]"
+        >
+          {isExporting ? (
+            <span className="inline-flex items-center">
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+              Exporting...
+            </span>
+          ) : (
+            'Export'
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel>Export Format</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {exportOptions.map((option) => (
+          <DropdownMenuItem key={option.format} onSelect={(e) => { e.preventDefault(); handleExport(option.format); }} className="flex flex-col items-start">
+            <span className="font-medium">{option.label}</span>
+            <span className="text-sm text-muted-foreground">{option.description}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

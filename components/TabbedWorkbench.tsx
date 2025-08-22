@@ -19,6 +19,8 @@ import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
 import { usePersistence } from '@/hooks/usePersistence';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Button } from '@/components/ui/Button';
 
 type TabType = 'upload' | 'query';
 
@@ -202,14 +204,15 @@ export const TabbedWorkbench: React.FC = () => {
               </div>
               <div className="flex items-center space-x-3">
                 {showMemoryBar && <MemoryUsageBar />}
-                <button
+                <Button
                   onClick={() => setShowSettings(true)}
-                  className="p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                  variant="ghost"
+                  className="p-3"
                   title="Settings"
                   aria-label="Open settings"
                 >
-                  <GearIcon size={30} className="w-7 h-7 sm:w-8 sm:h-8 text-gray-700 dark:text-gray-300" />
-                </button>
+                  <GearIcon size={30} className="w-7 h-7 sm:w-8 sm:h-8" />
+                </Button>
               </div>
             </div>
             {/* Tagline under the row on all sizes */}
@@ -220,35 +223,16 @@ export const TabbedWorkbench: React.FC = () => {
         </header>
 
         {/* Tabs */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('upload')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'upload'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                Data Upload
-              </button>
-              <button
-                onClick={() => setActiveTab('query')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'query'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                Query Editor
-              </button>
-            </nav>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
+          <div className="mb-6">
+            <TabsList>
+              <TabsTrigger value="upload">Data Upload</TabsTrigger>
+              <TabsTrigger value="query">Query Editor</TabsTrigger>
+            </TabsList>
           </div>
-        </div>
 
-        {/* Tab Content */}
-        {activeTab === 'upload' && (
+          {/* Tab Content */}
+          <TabsContent value="upload">
           <div className="space-y-6">
             {/* Upload Section */}
             <div>
@@ -264,9 +248,9 @@ export const TabbedWorkbench: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+          </TabsContent>
 
-        {activeTab === 'query' && (
+          <TabsContent value="query">
           <div className={`grid gap-6 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-4'}`}>
             {/* Sidebar */}
             {!isSidebarCollapsed && (
@@ -335,27 +319,20 @@ export const TabbedWorkbench: React.FC = () => {
                           <span className="text-green-600 dark:text-green-400">All changes saved</span>
                         )}
                       </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => saveQueryCallback?.()}
-                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                        >
+                    <div className="flex space-x-2">
+                        <Button onClick={() => saveQueryCallback?.()} variant="secondary">
                           Save Current
-                        </button>
-                        <button
-                          onClick={executeQuery}
-                          disabled={isQuerying || !db}
-                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
+                        </Button>
+                        <Button onClick={executeQuery} disabled={isQuerying || !db}>
                           {isQuerying ? (
                             <span className="flex items-center">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                               Running...
                             </span>
                           ) : (
                             'Run Query'
                           )}
-                        </button>
+                        </Button>
                         <ExportButton 
                           query={sql} 
                           disabled={!results || isQuerying}
@@ -416,7 +393,8 @@ export const TabbedWorkbench: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Settings Modal */}

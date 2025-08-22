@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/Collapsible';
+import { Button } from '@/components/ui/Button';
 import { TriangleIcon } from './icons';
 
 interface CollapsibleSidebarProps {
@@ -16,29 +18,23 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   defaultExpanded = true,
   className = ''
 }) => {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [open, setOpen] = React.useState(defaultExpanded);
 
   return (
-    <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${className}`}>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left flex items-center justify-between"
-      >
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-        <TriangleIcon
-          className={`text-gray-700 dark:text-gray-300 transition-transform duration-200 ${
-            isExpanded ? 'rotate-90' : 'rotate-0'
-          }`}
-        />
-      </button>
-      
-      <div className={`transition-all duration-200 overflow-hidden ${
-        isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
-      }`}>
-        <div className="p-4 bg-white dark:bg-gray-900">
-          {children}
-        </div>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className={`border rounded-lg overflow-hidden ${className}`}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full justify-between rounded-none bg-muted/40 px-4 py-3">
+            <h3 className="font-semibold">{title}</h3>
+            <TriangleIcon className={`transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          <div className="p-4 bg-background">
+            {children}
+          </div>
+        </CollapsibleContent>
       </div>
-    </div>
+    </Collapsible>
   );
 };
