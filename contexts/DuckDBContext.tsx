@@ -11,6 +11,7 @@ interface DuckDBContextType {
   error: Error | null;
   isSaving: boolean;
   setSaving: (saving: boolean) => void;
+  hasWriteAccess: boolean;
 }
 
 // Create the context with a default undefined value
@@ -27,6 +28,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
   const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
@@ -35,12 +37,24 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        // Get database instance from singleton manager
-        const dbInstance = await getDuckDB();
+        // Get database state from singleton manager
+        const { DuckDBManager } = await import('@/lib/duckdbManager');
+        const manager = DuckDBManager.getInstance();
+        const dbState = await manager.getDatabaseState();
+        const dbInstance = dbState.db!;
+        
+        // Check if database is using OPFS (persistent) or fell back to in-memory
+        const hasWrite = dbState.isOpfsSupported;
+        if (hasWrite) {
+          console.log('✓ Database using OPFS - changes will be saved');
+        } else {
+          console.warn('Database fell back to in-memory - changes will NOT be saved (multiple tabs detected)');
+        }
         
         // Only update state if component is still mounted
         if (isMountedRef.current) {
           setDb(dbInstance);
+          setHasWriteAccess(hasWrite);
           setIsLoading(false);
           console.log('✓ Database initialized');
         }
@@ -63,13 +77,14 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     };
   }, []); // Empty dependency array to run only once
 
+
   const setSaving = (saving: boolean) => {
     if (isMountedRef.current) {
       setIsSaving(saving);
     }
   };
 
-  const value = { db, isLoading, error, isSaving, setSaving };
+  const value = { db, isLoading, error, isSaving, setSaving, hasWriteAccess };
 
   return (
     <DuckDBContext.Provider value={value}>

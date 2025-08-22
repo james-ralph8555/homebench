@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/Button';
 type TabType = 'upload' | 'query';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, isSaving } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving, hasWriteAccess } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
@@ -310,6 +310,10 @@ export const TabbedWorkbench: React.FC = () => {
                       <div className="text-sm">
                         {restoreMessage ? (
                           <span className="text-blue-600 dark:text-blue-400">{restoreMessage}</span>
+                        ) : !hasWriteAccess ? (
+                          <span className="text-red-600 dark:text-red-400">
+                            ⚠ Changes will not be saved - use the original tab
+                          </span>
                         ) : isSaving ? (
                           <span className="flex items-center text-blue-600 dark:text-blue-400">
                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
