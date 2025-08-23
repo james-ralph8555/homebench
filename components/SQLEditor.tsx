@@ -43,7 +43,7 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
         borderRadius: '8px',
       },
       '.cm-scroller': {
-        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+        fontFamily: 'var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
       },
     }),
     // Performance: Disable some features for large queries

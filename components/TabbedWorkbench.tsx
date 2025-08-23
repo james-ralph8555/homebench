@@ -227,7 +227,7 @@ export const TabbedWorkbench: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Image 
-                  src="/logo.png" 
+                  src="/logo.webp" 
                   alt="HomeBench logo" 
                   width={32} 
                   height={32} 

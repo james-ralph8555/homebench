@@ -124,7 +124,6 @@ Static files can be deployed to any CDN:
 - `SQLEditor` (`components/SQLEditor.tsx`): CodeMirror-based SQL editor with debounced input
 - `ResultsGrid` (`components/ResultsGrid.tsx`): AG Grid virtualized results display
 - `SchemaExplorer` (`components/SchemaExplorer.tsx`): Database schema browser with caching
-- `PersistencePanel` (`components/PersistencePanel.tsx`): Session save/load management
 - `UI primitives` (`components/ui/*`): shadcn/ui-based primitives (Button, Dialog, DropdownMenu, Tabs, Collapsible, etc.)
 
 ### Core Libraries  
