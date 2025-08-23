@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { Table as ArrowTable } from 'apache-arrow';
 import { FolderIcon } from './icons';
+import { executeQueries } from '@/lib/multiTabQuery';
 
 interface DataPreviewProps {
   tableName: string | null;
@@ -17,20 +18,17 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
   const [tableInfo, setTableInfo] = useState<{ rowCount: number; columns: any[] } | null>(null);
 
   const loadPreview = useCallback(async () => {
-    if (!tableName || !db) return;
+    if (!tableName) return;
 
     setIsLoading(true);
     setError(null);
 
-    let connection = null;
     try {
-      connection = await db.connect();
-
-      // Get table info
-      const [countResult, columnsResult, sampleResult] = await Promise.all([
-        connection.query(`SELECT COUNT(*) as count FROM "${tableName}"`),
-        connection.query(`DESCRIBE "${tableName}"`),
-        connection.query(`SELECT * FROM "${tableName}" LIMIT 100`)
+      // Execute multiple queries in parallel through multi-tab system
+      const [countResult, columnsResult, sampleResult] = await executeQueries([
+        { sql: `SELECT COUNT(*) as count FROM "${tableName}"` },
+        { sql: `DESCRIBE "${tableName}"` },
+        { sql: `SELECT * FROM "${tableName}" LIMIT 100` }
       ]);
 
       const rowCount = countResult.toArray()[0].toJSON().count;
@@ -41,21 +39,18 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
     } catch (err: any) {
       setError(err.message);
     } finally {
-      if (connection) {
-        await connection.close();
-      }
       setIsLoading(false);
     }
-  }, [tableName, db]);
+  }, [tableName]);
 
   useEffect(() => {
-    if (tableName && db) {
+    if (tableName) {
       loadPreview();
     } else {
       setPreviewData(null);
       setTableInfo(null);
     }
-  }, [tableName, db, loadPreview]);
+  }, [tableName, loadPreview]);
 
   if (!tableName) {
     return (

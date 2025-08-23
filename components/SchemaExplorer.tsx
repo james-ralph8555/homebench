@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { TriangleIcon, RefreshIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
+import { executeQuery } from '@/lib/multiTabQuery';
 
 interface TableInfo {
   name: string;
@@ -35,7 +36,6 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   const [schemaCache, setSchemaCache] = useState<Map<string, { data: TableInfo[], timestamp: number }>>(new Map());
 
   const loadSchema = useCallback(async () => {
-    if (!db) return;
 
     // Check cache first (5 second cache)
     const cacheKey = 'schema';
@@ -49,12 +49,9 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
     setIsLoading(true);
     setError(null);
 
-    let connection = null;
     try {
-      connection = await db.connect();
-
-      // Get all tables with optimized query
-      const tablesResult = await connection.query(`
+      // Get all tables using multi-tab query system
+      const tablesResult = await executeQuery(`
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'main'
@@ -70,18 +67,18 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
         try {
           // Use a single query to get both column info and estimated row count
           const [columnsResult, countResult] = await Promise.all([
-            connection!.query(`
+            executeQuery(`
               SELECT column_name, data_type, is_nullable
               FROM information_schema.columns
               WHERE table_name = '${tableName}'
               ORDER BY ordinal_position
             `),
             // Use ANALYZE for faster row count estimation on large tables
-            connection!.query(`
+            executeQuery(`
               SELECT COUNT(*) as count FROM "${tableName}" LIMIT 1000
             `).catch(() => 
               // Fallback to exact count for smaller tables
-              connection!.query(`SELECT COUNT(*) as count FROM "${tableName}"`)
+              executeQuery(`SELECT COUNT(*) as count FROM "${tableName}"`)
             )
           ]);
           
@@ -126,18 +123,13 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
       console.error('Failed to load schema:', err);
       setError(err.message);
     } finally {
-      if (connection) {
-        await connection.close();
-      }
       setIsLoading(false);
     }
-  }, [db, schemaCache]);
+  }, [schemaCache]);
 
   useEffect(() => {
-    if (db) {
-      loadSchema();
-    }
-  }, [db, refreshTrigger, loadSchema]);
+    loadSchema();
+  }, [refreshTrigger, loadSchema]);
 
   const toggleTableExpansion = useCallback((tableName: string) => {
     const newExpanded = new Set(expandedTables);

@@ -12,6 +12,16 @@ interface DuckDBContextType {
   isSaving: boolean;
   setSaving: (saving: boolean) => void;
   hasWriteAccess: boolean;
+  multiTabStatus?: {
+    initialized: boolean;
+    role?: 'leader' | 'client';
+    isConnected?: boolean;
+    activeConnections?: number;
+    isReconnecting?: boolean;
+    inflightQueryCount?: number;
+    reconnectAttempts?: number;
+    maxReconnectAttempts?: number;
+  };
 }
 
 // Create the context with a default undefined value
@@ -29,7 +39,9 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [error, setError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
+  const [multiTabStatus, setMultiTabStatus] = useState<DuckDBContextType['multiTabStatus']>({ initialized: false });
   const isMountedRef = useRef<boolean>(true);
+  const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const initializeDB = async () => {
@@ -37,26 +49,34 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
-        // Get database state from singleton manager
+        // Get database state from multi-tab aware manager
         const { DuckDBManager } = await import('@/lib/duckdbManager');
         const manager = DuckDBManager.getInstance();
         const dbState = await manager.getDatabaseState();
-        const dbInstance = dbState.db!;
+        
+        // Get multi-tab status
+        const tabStatus = await manager.getMultiTabStatus();
         
         // Check if database is using OPFS (persistent) or fell back to in-memory
         const hasWrite = dbState.isOpfsSupported;
-        if (hasWrite) {
-          console.log('✓ Database using OPFS - changes will be saved');
+        
+        if (tabStatus.initialized) {
+          if ((tabStatus as any).role === 'leader') {
+            console.log('✓ Database initialized as LEADER with OPFS persistence');
+          } else {
+            console.log('✓ Database initialized as CLIENT - connected to leader');
+          }
         } else {
-          console.warn('Database fell back to in-memory - changes will NOT be saved (multiple tabs detected)');
+          console.log('✓ Database initialized in legacy mode');
         }
         
         // Only update state if component is still mounted
         if (isMountedRef.current) {
-          setDb(dbInstance);
+          setDb(dbState.db);
           setHasWriteAccess(hasWrite);
+          setMultiTabStatus(tabStatus as any);
           setIsLoading(false);
-          console.log('✓ Database initialized');
+          console.log('✓ Database context initialized');
         }
       } catch (e: any) {
         console.error("Failed to initialize DuckDB:", e);
@@ -74,8 +94,44 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
 
     return () => {
       isMountedRef.current = false;
+      if (statusUpdateTimerRef.current) {
+        clearInterval(statusUpdateTimerRef.current);
+        statusUpdateTimerRef.current = null;
+      }
     };
   }, []); // Empty dependency array to run only once
+
+  // Poll multi-tab status for real-time updates
+  useEffect(() => {
+    if (!multiTabStatus?.initialized) return;
+
+    const updateStatus = async () => {
+      try {
+        const { DuckDBManager } = await import('@/lib/duckdbManager');
+        const manager = DuckDBManager.getInstance();
+        const tabStatus = await manager.getMultiTabStatus();
+        
+        if (isMountedRef.current) {
+          setMultiTabStatus(tabStatus as any);
+        }
+      } catch (error) {
+        console.warn('Failed to update multi-tab status:', error);
+      }
+    };
+
+    // Update immediately
+    updateStatus();
+
+    // Then poll every 2 seconds for status updates
+    statusUpdateTimerRef.current = setInterval(updateStatus, 2000);
+
+    return () => {
+      if (statusUpdateTimerRef.current) {
+        clearInterval(statusUpdateTimerRef.current);
+        statusUpdateTimerRef.current = null;
+      }
+    };
+  }, [multiTabStatus?.initialized]);
 
 
   const setSaving = (saving: boolean) => {
@@ -84,7 +140,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     }
   };
 
-  const value = { db, isLoading, error, isSaving, setSaving, hasWriteAccess };
+  const value = { db, isLoading, error, isSaving, setSaving, hasWriteAccess, multiTabStatus };
 
   return (
     <DuckDBContext.Provider value={value}>

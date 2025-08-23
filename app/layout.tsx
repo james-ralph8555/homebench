@@ -3,7 +3,7 @@ import { DuckDBProvider } from '@/contexts/DuckDBContext'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'HomeBench - Privacy-by-Design SQL Workbench',
+  title: 'HomeBench',
   description: 'A privacy-by-design in-browser SQL workbench powered by DuckDB-WASM. Analyze your data locally without ever sending it to a server.',
 }
 

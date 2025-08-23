@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/Button';
 type TabType = 'upload' | 'query';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, isSaving, hasWriteAccess } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, multiTabStatus } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
@@ -73,7 +73,7 @@ export const TabbedWorkbench: React.FC = () => {
   // Auto-load session on component mount
   React.useEffect(() => {
     const checkAndLoadSession = async () => {
-      if (!db || !isSupported || autoLoaded) return;
+      if ((!db && !multiTabStatus?.initialized) || !isSupported || autoLoaded) return;
       
       try {
         const exists = await checkSessionExists();
@@ -90,10 +90,11 @@ export const TabbedWorkbench: React.FC = () => {
     };
 
     checkAndLoadSession();
-  }, [db, isSupported, autoLoaded, checkSessionExists, loadSession]);
+  }, [db, multiTabStatus?.initialized, isSupported, autoLoaded, checkSessionExists, loadSession]);
 
   const executeQuery = async () => {
-    if (!db) return;
+    // Check if database is available (direct db for leaders, multi-tab for clients)
+    if (!db && !multiTabStatus?.initialized) return;
     
     setIsQuerying(true);
     setError(null);
@@ -312,12 +313,32 @@ export const TabbedWorkbench: React.FC = () => {
                           <span className="text-blue-600 dark:text-blue-400">{restoreMessage}</span>
                         ) : !hasWriteAccess ? (
                           <span className="text-red-600 dark:text-red-400">
-                            ⚠ Changes will not be saved - use the original tab
+                            Changes will not be saved - use the original tab
                           </span>
                         ) : isSaving ? (
                           <span className="flex items-center text-blue-600 dark:text-blue-400">
                             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
                             Saving…
+                          </span>
+                        ) : multiTabStatus?.isReconnecting ? (
+                          <span className="flex items-center text-amber-600 dark:text-amber-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                            Reconnecting to database - don&apos;t close this tab
+                          </span>
+                        ) : (multiTabStatus?.inflightQueryCount && multiTabStatus.inflightQueryCount > 0) ? (
+                          <span className="flex items-center text-blue-600 dark:text-blue-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                            {multiTabStatus.inflightQueryCount === 1 ? 'Processing query' : `Processing ${multiTabStatus.inflightQueryCount} queries`} - don&apos;t close this tab
+                          </span>
+                        ) : isQuerying ? (
+                          <span className="flex items-center text-blue-600 dark:text-blue-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                            Running query - don&apos;t close this tab
+                          </span>
+                        ) : multiTabStatus?.role === 'leader' && multiTabStatus?.activeConnections && multiTabStatus.activeConnections > 0 ? (
+                          <span className="flex items-center text-blue-600 dark:text-blue-400">
+                            <div className="animate-pulse w-2 h-2 bg-current rounded-full mr-2"></div>
+                            Database active - {multiTabStatus.activeConnections} tab{multiTabStatus.activeConnections !== 1 ? 's' : ''} connected
                           </span>
                         ) : (
                           <span className="text-green-600 dark:text-green-400">All changes saved</span>
@@ -327,7 +348,7 @@ export const TabbedWorkbench: React.FC = () => {
                         <Button onClick={() => saveQueryCallback?.()} variant="secondary">
                           Save Current
                         </Button>
-                        <Button onClick={executeQuery} disabled={isQuerying || !db}>
+                        <Button onClick={executeQuery} disabled={isQuerying || (!db && !multiTabStatus?.initialized)}>
                           {isQuerying ? (
                             <span className="flex items-center">
                               <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>

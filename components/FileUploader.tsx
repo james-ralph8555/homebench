@@ -11,15 +11,21 @@ interface FileUploaderProps {
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) => {
-  const { db } = useDuckDB();
+  const { db, multiTabStatus } = useDuckDB();
   const [message, setMessage] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (file: File) => {
+    // File uploads require direct database access for file registration
+    // Only leader tabs have this capability
     if (!db) {
-      setMessage('Database not initialized. Please refresh the page.');
+      if (multiTabStatus?.role === 'client') {
+        setMessage('File uploads must be done from the original tab that has the database. Please switch to that tab to upload files.');
+      } else {
+        setMessage('Database not initialized. Please refresh the page.');
+      }
       return;
     }
 

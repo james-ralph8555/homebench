@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MemoryManager } from '@/lib/performanceUtils';
+import { WarningIcon } from './icons';
 
 interface MemoryInfo {
   used: number;
@@ -97,8 +98,10 @@ export const MemoryUsageBar: React.FC = () => {
   if (isInFallbackMode) {
     return (
       <div className="flex items-center space-x-2 text-xs text-gray-500">
-        <span>Memory monitoring unavailable</span>
-        <span className="text-orange-500" title="Performance.memory API not available in this browser">⚠️</span>
+        <span className="inline-flex items-center">
+          <WarningIcon className="text-orange-500 mr-1" size={14} />
+          Memory monitoring unavailable
+        </span>
       </div>
     );
   }

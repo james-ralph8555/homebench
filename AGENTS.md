@@ -21,6 +21,16 @@
 - **Tailwind**: Prefer semantic component props; keep class lists readable and grouped logically.
 - **Linting**: Fix issues surfaced by `npm run lint`; do not disable rules without justification.
 
+## UI System (shadcn/ui)
+- **Primitives location**: Reusable UI primitives live under `components/ui/` (e.g., `components/ui/Button.tsx`, `Dialog.tsx`, `Tabs.tsx`). Import with `@/components/ui/...`.
+- **Import aliases**: Use `@/components` and `@/lib/utils` (see `components.json` aliases). Use `cn` from `@/lib/utils` to compose Tailwind classes.
+- **File naming**: Keep UI primitive filenames in `PascalCase` to match the rest of the codebase (note: this differs from shadcn defaults).
+- **Styling**: Use Tailwind tokens defined via CSS variables. Avoid hardcoded colors; prefer `bg-background`, `text-foreground`, `border`, `muted`, `accent`, etc. Dark mode uses the `dark` class with variables in `app/globals.css` and mappings in `tailwind.config.js`.
+- **Variants**: Prefer component `variant`/`size` props on primitives (e.g., `Button`) over ad‑hoc classes when available. Use `className` for layout tweaks only.
+- **Server vs client**: Prefer server components by default. Add `"use client"` only where interactivity is required (e.g., dropdowns, dialogs). Many primitives are server‑compatible; wrappers that use events require client.
+- **Adding primitives**: The repo is configured with `components.json` (`rsc: true`, base color `slate`). When adding new shadcn components, generate with the shadcn CLI and then adjust filenames to `PascalCase` to match our convention.
+- **Do not**: Add new UI libraries or global CSS frameworks. Compose complex views from the primitives and local components in `components/`.
+
 ## Testing Guidelines
 - No formal test runner is configured yet. If adding tests, prefer Vitest + React Testing Library.
 - Place tests alongside source as `*.test.ts(x)` or in `__tests__/` mirrors.

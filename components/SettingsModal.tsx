@@ -39,7 +39,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   showMemoryBar,
   onMemoryBarToggle,
 }) => {
-  const { db } = useDuckDB();
+  const { db, multiTabStatus } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
     supported: false,
     fileSize: null,
@@ -139,6 +139,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [isOpen, loadOPFSInfo, loadSavedQueries]);
 
   const handleWipeOpfs = async () => {
+    // Check if this is a client tab - only leader can wipe OPFS data
+    if (multiTabStatus?.role === 'client') {
+      alert('Database management must be done from the original tab that has the database. Please switch to that tab to manage data.');
+      return;
+    }
+    
     if (!confirm('Wipe all OPFS data? This will delete the entire database and cannot be undone. The page will reload after wiping.')) return;
     
     setIsLoading(true);
@@ -155,6 +161,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleDownloadSession = async () => {
+    // Check if this is a client tab - only leader can download session
+    if (multiTabStatus?.role === 'client') {
+      alert('Session download must be done from the original tab that has the database. Please switch to that tab to download the session.');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       await downloadSavedSessionAsDuckDB();
@@ -167,6 +179,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
 
   const handleDeleteAllData = async () => {
+    // Check if this is a client tab - only leader can delete all data
+    if (multiTabStatus?.role === 'client') {
+      alert('Data deletion must be done from the original tab that has the database. Please switch to that tab to delete all data.');
+      return;
+    }
+    
     if (!confirm('Delete ALL application data including database, saved queries, and settings? This cannot be undone and will reload the page.')) {
       return;
     }
@@ -375,38 +393,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-3">
               <Button
                 onClick={handleDownloadSession}
-                disabled={isLoading || !opfsInfo.fileExists}
+                disabled={isLoading || !opfsInfo.fileExists || multiTabStatus?.role === 'client'}
                 variant="secondary"
                 className="w-full justify-start h-auto whitespace-normal break-words text-left px-4 py-6"
               >
                 <div className="font-medium">Download Session Database</div>
-                <div className="text-sm opacity-75">Export the complete .duckdb file</div>
+                <div className="text-sm opacity-75">
+                  {multiTabStatus?.role === 'client' 
+                    ? 'Only available from the original database tab' 
+                    : 'Export the complete .duckdb file'
+                  }
+                </div>
               </Button>
 
               <Button
                 onClick={handleWipeOpfs}
-                disabled={isLoading || !opfsInfo.supported}
+                disabled={isLoading || !opfsInfo.supported || multiTabStatus?.role === 'client'}
                 variant="destructive"
                 className="w-full justify-start h-auto whitespace-normal break-words text-left px-4 py-6 inline-flex items-start"
               >
                 <div className="mt-0.5 mr-2"><WarningIcon /></div>
                 <div>
                   <div className="font-medium">Wipe OPFS Data</div>
-                  <div className="text-sm opacity-75">Delete all database files from browser storage</div>
+                  <div className="text-sm opacity-75">
+                    {multiTabStatus?.role === 'client' 
+                      ? 'Only available from the original database tab' 
+                      : 'Delete all database files from browser storage'
+                    }
+                  </div>
                 </div>
               </Button>
 
 
               <Button
                 onClick={handleDeleteAllData}
-                disabled={isLoading}
+                disabled={isLoading || multiTabStatus?.role === 'client'}
                 variant="destructive"
                 className="w-full justify-start h-auto whitespace-normal break-words text-left px-4 py-6 inline-flex items-start"
               >
                 <div className="mt-0.5 mr-2"><WarningIcon /></div>
                 <div>
                   <div className="font-medium">Delete All Application Data</div>
-                  <div className="text-sm opacity-75">Completely reset HomeBench (requires page refresh)</div>
+                  <div className="text-sm opacity-75">
+                    {multiTabStatus?.role === 'client' 
+                      ? 'Only available from the original database tab' 
+                      : 'Completely reset HomeBench (requires page refresh)'
+                    }
+                  </div>
                 </div>
               </Button>
             </div>

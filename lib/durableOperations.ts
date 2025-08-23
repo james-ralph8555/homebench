@@ -1,7 +1,7 @@
-import { getDuckDB } from './duckdbManager';
+import { DuckDBManager } from './duckdbManager';
 
 /**
- * Simplified durability operations - fail fast approach
+ * Multi-tab aware durability operations with streaming support
  */
 
 export interface WriteResult {
@@ -11,8 +11,16 @@ export interface WriteResult {
   duration: number;
 }
 
+export interface StreamingQueryOptions {
+  onArrowChunk?: (chunk: ArrayBuffer) => void;
+  onJsonChunk?: (rows: any[]) => void;
+  onProgress?: (processed: number) => void;
+  format?: 'arrow' | 'json';
+  chunkRows?: number;
+}
+
 /**
- * Executes a write operation with immediate CHECKPOINT - fail fast approach
+ * Executes a write operation through the multi-tab system with automatic durability
  */
 export const executeDurableWrite = async (
   query: string, 
@@ -20,49 +28,19 @@ export const executeDurableWrite = async (
 ): Promise<WriteResult> => {
   const startTime = performance.now();
   
-  const db = await getDuckDB();
-  const connection = await db.connect();
-  
   try {
-    // Start a transaction for write operations
-    await connection.query('BEGIN TRANSACTION;');
+    const manager = DuckDBManager.getInstance();
     
-    // Execute the write operation
-    let result;
-    try {
-      if (params.length > 0) {
-        const statement = await connection.prepare(query);
-        try {
-          result = await statement.query(...params);
-        } finally {
-          await statement.close();
-        }
-      } else {
-        result = await connection.query(query);
-      }
-      
-      // Commit the transaction
-      await connection.query('COMMIT;');
-      
-    } catch (error) {
-      // Rollback on error
-      try {
-        await connection.query('ROLLBACK;');
-      } catch (rollbackError) {
-        console.warn('Failed to rollback transaction:', rollbackError);
-      }
-      throw error;
-    }
+    // Wrap the query in a transaction with checkpoint for durability
+    const transactionalQuery = `
+      BEGIN TRANSACTION;
+      ${query};
+      COMMIT;
+      CHECKPOINT;
+    `;
     
-    // CRITICAL: Execute CHECKPOINT to ensure durability
-    await connection.query('CHECKPOINT;');
-    
-    // CRITICAL: Flush to OPFS for persistent storage
-    try {
-      await db.flushFiles();
-    } catch (flushError) {
-      console.warn('Failed to flush to OPFS (data still saved):', flushError);
-    }
+    // Execute through multi-tab system as a write operation
+    const result = await manager.executeQuery(transactionalQuery, params, 'rw');
     
     const duration = performance.now() - startTime;
     
@@ -81,39 +59,39 @@ export const executeDurableWrite = async (
       error: error.message || String(error),
       duration
     };
-  } finally {
-    try {
-      await connection.close();
-    } catch (closeError) {
-      console.warn('Failed to close connection:', closeError);
-    }
   }
 };
 
 /**
- * Executes a read query - no checkpointing needed
+ * Executes a read query through the multi-tab system
  */
 export const executeReadQuery = async (
   query: string, 
   params: any[] = []
 ): Promise<any> => {
-  const db = await getDuckDB();
-  const connection = await db.connect();
+  const manager = DuckDBManager.getInstance();
+  return manager.executeQuery(query, params, 'ro');
+};
+
+/**
+ * Executes a streaming read query with chunked results
+ */
+export const executeStreamingReadQuery = async (
+  query: string,
+  params: any[] = [],
+  options: StreamingQueryOptions = {}
+): Promise<void> => {
+  const manager = DuckDBManager.getInstance();
   
-  try {
-    if (params.length > 0) {
-      const statement = await connection.prepare(query);
-      try {
-        return await statement.query(...params);
-      } finally {
-        await statement.close();
-      }
-    } else {
-      return await connection.query(query);
-    }
-  } finally {
-    await connection.close();
-  }
+  return manager.executeStreamingQuery({
+    sql: query,
+    args: params,
+    mode: 'ro',
+    fmt: options.format ?? 'arrow',
+    chunkRows: options.chunkRows,
+    onArrowChunk: options.onArrowChunk,
+    onJsonChunk: options.onJsonChunk
+  });
 };
 
 /**

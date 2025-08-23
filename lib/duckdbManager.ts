@@ -245,12 +245,13 @@ export async function closeDatabase(dbState: DatabaseState): Promise<void> {
 // =============================================================================
 
 /**
- * Simplified singleton database manager - fail fast approach with working implementation
+ * Multi-tab aware database manager with leader-client coordination
  */
 export class DuckDBManager {
   private static instance: DuckDBManager | null = null;
   private dbState: DatabaseState | null = null;
   private initPromise: Promise<DatabaseState> | null = null;
+  private multiTabInitialized = false;
 
   private constructor() {}
 
@@ -283,9 +284,47 @@ export class DuckDBManager {
   }
 
   private async initializeDatabaseState(): Promise<DatabaseState> {
-    this.dbState = await initializeDatabase({
-      databasePath: 'opfs://homebench.db'
-    });
+    // Initialize multi-tab coordination system first
+    if (!this.multiTabInitialized) {
+      const { boot } = await import('./multitab/boot');
+      await boot();
+      this.multiTabInitialized = true;
+    }
+
+    // Check if we're the leader or client
+    const { getMultiTabState } = await import('./multitab/boot');
+    const multiTabState = getMultiTabState();
+    
+    console.log(`🔍 Multi-tab state: isLeader=${multiTabState.isLeader}, initialized=${multiTabState.isInitialized}`);
+    
+    if (multiTabState.isLeader) {
+      // Leader tab: initialize the database directly and store it
+      console.log('✓ Database manager initialized as LEADER');
+      const directDbState = await initializeDatabase({
+        databasePath: 'opfs://homebench.db'
+      });
+      
+      this.dbState = {
+        db: directDbState.db, // Leader has direct DB access
+        isOpfsSupported: directDbState.isOpfsSupported
+      };
+      
+      // Initialize the leader system with the database we just created
+      if (directDbState.db) {
+        const { setLeaderDatabase, initializeLeader } = await import('./multitab/leader');
+        setLeaderDatabase(directDbState.db, directDbState.isOpfsSupported);
+        await initializeLeader();
+      } else {
+        throw new Error('Failed to initialize database for leader');
+      }
+    } else {
+      // Client tab: we connect through the multi-tab system
+      console.log('✓ Database manager initialized as CLIENT');
+      this.dbState = {
+        db: null, // Clients don't have direct DB access
+        isOpfsSupported: true // Shared through leader
+      };
+    }
     
     this.registerShutdownHandlers();
     
@@ -357,12 +396,101 @@ export class DuckDBManager {
   }
 
   public async reset(): Promise<void> {
+    // Clean up multi-tab system
+    if (this.multiTabInitialized) {
+      const { cleanup } = await import('./multitab/boot');
+      cleanup();
+      this.multiTabInitialized = false;
+    }
+    
     if (this.dbState) {
       await closeDatabase(this.dbState);
       this.dbState = null;
     }
     this.initPromise = null;
     DuckDBManager.instance = null;
+  }
+
+  /**
+   * Execute a query through the multi-tab system
+   * This provides a unified interface regardless of leader/client role
+   */
+  public async executeQuery(sql: string, args?: any[], mode: 'ro' | 'rw' = 'ro'): Promise<any> {
+    const { getMultiTabState } = await import('./multitab/boot');
+    const state = getMultiTabState();
+    
+    if (state.isLeader) {
+      // Leader executes directly - fallback for legacy compatibility
+      // In practice, queries should go through the client interface for consistency
+      const db = await this.getDatabase();
+      const conn = await db.connect();
+      try {
+        let result;
+        if (args && args.length > 0) {
+          const stmt = await conn.prepare(sql);
+          try {
+            result = await stmt.query(...args);
+          } finally {
+            await stmt.close();
+          }
+        } else {
+          result = await conn.query(sql);
+        }
+        return result;
+      } finally {
+        await conn.close();
+      }
+    } else {
+      // Client executes through multi-tab system
+      const { executeQuery } = await import('./multitab/client');
+      return executeQuery(sql, args, mode);
+    }
+  }
+
+  /**
+   * Execute a streaming query through the multi-tab system
+   */
+  public async executeStreamingQuery(options: {
+    sql: string;
+    args?: any[];
+    mode?: 'ro' | 'rw';
+    fmt?: 'arrow' | 'json';
+    chunkRows?: number;
+    onArrowChunk?: (buf: ArrayBuffer) => void;
+    onJsonChunk?: (rows: any[]) => void;
+  }): Promise<void> {
+    const { queryStream } = await import('./multitab/client');
+    return queryStream(options);
+  }
+
+  /**
+   * Get multi-tab system status
+   */
+  public async getMultiTabStatus() {
+    if (!this.multiTabInitialized) {
+      return { initialized: false };
+    }
+
+    const { getMultiTabState } = await import('./multitab/boot');
+    const bootState = getMultiTabState();
+    
+    if (bootState.isLeader) {
+      const { getLeaderStats } = await import('./multitab/leader');
+      return {
+        initialized: true,
+        role: 'leader',
+        ...bootState,
+        ...getLeaderStats()
+      };
+    } else {
+      const { getClientState } = await import('./multitab/client');
+      return {
+        initialized: true,
+        role: 'client',
+        ...bootState,
+        ...getClientState()
+      };
+    }
   }
 }
 

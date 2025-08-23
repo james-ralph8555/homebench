@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 HomeBench is a privacy-by-design, analytical SQL workbench that runs entirely in the browser using DuckDB-WASM. No user data (files or queries) is ever transmitted to servers - all processing happens client-side.
 
 ## Architecture
-- **Frontend**: Next.js with TypeScript and TailwindCSS
+- **Frontend**: Next.js with TypeScript, TailwindCSS, and shadcn/ui primitives
 - **Database**: DuckDB-WASM for in-browser SQL analytics
 - **Storage**: Origin Private File System (OPFS) for database persistence
 - **Deployment**: Static site generation (SSG) for serverless hosting
@@ -38,6 +38,15 @@ npm start
 npm run lint
 npm run typecheck
 ```
+
+## UI System (shadcn/ui)
+- **Primitives**: Reusable building blocks live in `components/ui/` (e.g., `Button.tsx`, `Dialog.tsx`, `DropdownMenu.tsx`, `Tabs.tsx`, `Separator.tsx`, `Switch.tsx`, `ScrollArea.tsx`, `Label.tsx`, `Collapsible.tsx`). Import via `@/components/ui/...`.
+- **Aliases**: `components.json` sets aliases (`components: '@/components'`, `utils: '@/lib/utils'`) and enables RSC (`rsc: true`). Use `cn` from `@/lib/utils` for class composition.
+- **File naming**: Keep primitive filenames in `PascalCase` to match the repo style (intentional deviation from shadcn defaults).
+- **Theming**: Tailwind design tokens are driven by CSS variables in `app/globals.css` with extensions in `tailwind.config.js` (base color: `slate`, dark mode via `class`). Prefer tokens like `bg-background`, `text-foreground`, `muted`, `accent`, and `border` over hardcoded colors.
+- **Variants**: Prefer component `variant` and `size` props over custom color classes when available. Use `className` for layout/spacing only.
+- **RSC vs client**: Default to server components. Add `"use client"` only when interaction is required (menus, dialogs, toggles). Many primitives are usable server‑side; evented wrappers must be client components.
+- **Adding components**: Use the shadcn CLI with the existing `components.json`. After generation, rename files to `PascalCase` to keep consistency.
 
 ### Testing
 ```bash
@@ -111,11 +120,12 @@ Static files can be deployed to any CDN:
 ### Main Components
 - `DuckDBProvider` (`contexts/DuckDBContext.tsx`): Singleton DuckDB-WASM instance with OPFS persistence
 - `TabbedWorkbench` (`components/TabbedWorkbench.tsx`): Main UI orchestrating all features
-- `FileUploader` (`components/FileUploader.tsx`): File ingestion into DuckDB tables
+- `FileUploader` (`components/FileUploader.tsx`): Ingests files and composes shadcn primitives for actions
 - `SQLEditor` (`components/SQLEditor.tsx`): CodeMirror-based SQL editor with debounced input
 - `ResultsGrid` (`components/ResultsGrid.tsx`): AG Grid virtualized results display
 - `SchemaExplorer` (`components/SchemaExplorer.tsx`): Database schema browser with caching
 - `PersistencePanel` (`components/PersistencePanel.tsx`): Session save/load management
+- `UI primitives` (`components/ui/*`): shadcn/ui-based primitives (Button, Dialog, DropdownMenu, Tabs, Collapsible, etc.)
 
 ### Core Libraries  
 - `/lib/performanceUtils.ts`: Query optimization and performance analysis
@@ -129,6 +139,7 @@ Static files can be deployed to any CDN:
 - `next.config.js` enables `asyncWebAssembly` and configures webpack for DuckDB-WASM
 - Outputs WASM files to `static/wasm/` directory
 - Excludes DuckDB worker files on server-side rendering
+ - Tailwind + shadcn configured via `tailwind.config.js`, `app/globals.css`, and `components.json`
 
 ## Future Enhancements
 - Multi-threading support when stable
