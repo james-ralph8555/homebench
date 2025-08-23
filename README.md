@@ -13,11 +13,9 @@
   </tr>
   </table>
 
-## 🔗 Try It Online
+## [Try It Online](https://homebench.casa)
 
-- Live demo: https://homebench.casa
-
-## 📖 Usage
+## Usage
 
 1. Upload data: CSV, Parquet, or JSON from your computer
 2. Write SQL: Use the built-in editor with hints
@@ -26,19 +24,26 @@
 5. Export/share: Download results (CSV, Parquet, JSON)
 6. Persist session: Your database is saved to OPFS automatically
 
-## ✨ Features
+New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 
-- **🔒 Privacy-by-Design**: All data processing happens in your browser - nothing is sent to servers
- - **⚡ High Performance**: Powered by DuckDB-WASM with query optimization
-- **📊 Rich Data Support**: Works with CSV, Parquet, and JSON files
-- **💾 Session Persistence**: Saves entire database snapshot to OPFS (includes uploaded data)
-- **🌐 Serverless**: Deploy as static files to any CDN
-- **📝 Full SQL Support**: Complete SQL analytics with intelligent editor and performance hints
-- **📈 Performance Monitoring**: Query runtime and memory usage tracking
-- **🗄️ Schema Explorer**: Interactive database schema browser with caching
-- **⚙️ Auto-Optimization**: Automatic query optimization for better performance
+## Features
 
-## 🚀 Quick Start
+- Privacy by default: All data stays on your device; nothing is sent to a server.
+- Fast on large data: Run SQL over millions of rows at interactive speeds in your browser, powered by DuckDB‑WASM.
+- Flexible formats: Open CSV, Parquet, and JSON; join multiple files using standard SQL.
+- Saved sessions: Your database persists to the browser’s file system (OPFS) so your work is there when you return.
+- Rich results viewer: Virtualized grid for smooth scrolling, quick inspection, and export to CSV/Parquet/JSON.
+- Zero setup: Works as a static site; just open and start querying.
+
+## Planned Features
+
+- Excel import/export
+- AWS + URL file ingestion
+- Full DuckDB syntax support in the editor
+- Import session from DuckDB file
+- BI interface powered by Plotly.js
+
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+ 
@@ -67,7 +72,7 @@ npm run build
 npm start
 ```
 
-## 📚 Technical Docs
+## Technical Docs
 
 - App architecture and non-functional details: `app/README.md`
 - Components map and UI overview: `components/README.md`
@@ -76,7 +81,7 @@ npm start
 
 Mermaid diagrams and deep-dive technical content have been moved into these sub READMEs for clarity.
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 
@@ -90,11 +95,11 @@ homebench/
 └── README.md           # Project overview
 ```
 
-## 🔎 Technical Details
+## Technical Details
 
 See `app/README.md` and `lib/README.md` for detailed architecture, implementation status, and non-functional behavior.
 
-## 🔧 Available Scripts
+## Available Scripts
 
 ```bash
 npm run dev          # Start development server
@@ -106,7 +111,7 @@ npm test             # Run unit tests (Vitest)
 npm run test:watch   # Watch mode for tests
 ```
 
-## 🧪 Testing
+## Testing
 
 This repo uses Vitest with a `jsdom` environment to unit test browser-facing utilities in `lib/` with minimal mocking.
 
@@ -114,29 +119,23 @@ This repo uses Vitest with a `jsdom` environment to unit test browser-facing uti
 - `test/setup.ts` loads `fake-indexeddb/auto` and adds small polyfills (e.g., `URL.createObjectURL`).
 - Coverage reports are generated with the `v8` provider into `coverage/`.
 
-## 📊 Performance
+## Performance
 
 Performance optimizations and best practices are documented in `lib/README.md`.
 
-## 🌐 Browser Support & Limitations
+## Browser Support & Limitations
 
 See `app/README.md` for supported browsers and current limitations.
 
-## 🤝 Contributing
+ 
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [DuckDB](https://duckdb.org/) team for the amazing analytical database
 - [DuckDB-WASM](https://github.com/duckdb/duckdb-wasm) for browser support
 - Next.js team for the excellent React framework
 
-## 📚 Learn More
+## Learn More
 
 - DuckDB Documentation: https://duckdb.org/docs/
 - Next.js Documentation: https://nextjs.org/docs
