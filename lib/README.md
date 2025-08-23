@@ -11,12 +11,15 @@ For multi‑tab coordination, transport, and query streaming, see `lib/multitab/
 - `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS, constants for DB path).
 - `persistence.ts`: Session save/load/exists/delete helpers (checkpoint + flush semantics).
 - `exportUtils.ts`: Export results to CSV/Parquet/JSON via `COPY (...) TO` and browser downloads.
+- `chartExportUtils.ts`: Export charts to PNG/SVG.
 - `queryStore.ts`: Saved queries DB using Dexie/IndexedDB.
 - `tableMetadataStore.ts`: Lightweight table metadata in IndexedDB.
 - `performanceUtils.ts`: Timing and memory usage helpers.
+- `chartPerformanceUtils.ts`: Chart performance helpers.
 - `autoSaver.ts`: Auto‑save and periodic flush orchestration.
 - `multiTabQuery.ts`: Thin helpers for cross‑tab queries.
 - `multitab/*`: Leader election and transport. See `multitab/README.md`.
+- `plotlyTransform.ts`: Transforms query results into a format that can be used by Plotly.js.
 - `utils.ts`: Misc shared helpers.
 
 ## Storage and Indexes

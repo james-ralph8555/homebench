@@ -87,6 +87,11 @@ export const TabbedWorkbench: React.FC = () => {
     const stored = localStorage.getItem('useWebGL');
     return stored === 'true';
   });
+  const [chartRowLimit, setChartRowLimit] = useState<number>(() => {
+    if (typeof window === 'undefined') return 10000;
+    const stored = localStorage.getItem('chartRowLimit');
+    return stored ? parseInt(stored, 10) : 10000;
+  });
   const [resultsViewMode, setResultsViewMode] = useState<'grid' | 'chart'>('grid');
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
@@ -109,6 +114,10 @@ export const TabbedWorkbench: React.FC = () => {
   React.useEffect(() => {
     try { localStorage.setItem('useWebGL', String(useWebGL)); } catch {}
   }, [useWebGL]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem('chartRowLimit', String(chartRowLimit)); } catch {}
+  }, [chartRowLimit]);
 
   // Auto-load session on component mount
   React.useEffect(() => {
@@ -526,6 +535,7 @@ export const TabbedWorkbench: React.FC = () => {
                         data={results} 
                         theme={theme}
                         useWebGL={useWebGL}
+                        chartRowLimit={chartRowLimit}
                       />
                     </Suspense>
                   )}
@@ -538,9 +548,10 @@ export const TabbedWorkbench: React.FC = () => {
           <TabsContent value="visualization">
             <Suspense fallback={<div className="animate-pulse stable-skeleton-visualization" />}>
               <Visualization 
-                data={results} 
                 theme={theme}
                 useWebGL={useWebGL}
+                initialTable={previewTable || undefined}
+                chartRowLimit={chartRowLimit}
               />
             </Suspense>
           </TabsContent>
@@ -559,6 +570,8 @@ export const TabbedWorkbench: React.FC = () => {
             onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
             useWebGL={useWebGL}
             onWebGLToggle={() => setUseWebGL(prev => !prev)}
+            chartRowLimit={chartRowLimit}
+            onChartRowLimitChange={setChartRowLimit}
           />
         </Suspense>
       )}

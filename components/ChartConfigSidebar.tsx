@@ -10,6 +10,44 @@ import { Separator } from '@/components/ui/Separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/DropdownMenu';
 import { TriangleIcon } from './icons';
 
+interface TableSelectorProps {
+  tables: string[];
+  selectedTable?: string;
+  onTableSelect: (table: string) => void;
+}
+
+const TableSelector: React.FC<TableSelectorProps> = ({ tables, selectedTable, onTableSelect }) => {
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Data Source</Label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="w-full justify-start text-left">
+            <span className={selectedTable ? 'text-foreground' : 'text-muted-foreground'}>
+              {selectedTable || 'Select a table'}
+            </span>
+            <svg className="ml-auto w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-full min-w-[200px]">
+          {tables.map((table) => (
+            <DropdownMenuItem key={table} onClick={() => onTableSelect(table)}>
+              {table}
+              {table === selectedTable && (
+                <svg className="ml-auto w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
 interface ColumnSelectorProps {
   label: string;
   value?: string;
@@ -177,6 +215,9 @@ interface ChartConfigSidebarProps {
   config: ChartConfig;
   onConfigChange: (config: ChartConfig) => void;
   data: ArrowTable | null;
+  tables?: string[];
+  selectedTable?: string;
+  onTableSelect?: (table: string) => void;
 }
 
 export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({ 
@@ -184,7 +225,10 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
   onCollapseToggle, 
   config, 
   onConfigChange, 
-  data 
+  data, 
+  tables = [],
+  selectedTable,
+  onTableSelect
 }) => {
   const [localConfig, setLocalConfig] = React.useState<ChartConfig>(config);
 
@@ -257,6 +301,17 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
         </TabsList>
         <TabsContent value="data-mapping">
           <div className="p-4 space-y-4">
+            {tables.length > 0 && onTableSelect && (
+              <>
+                <TableSelector 
+                  tables={tables} 
+                  selectedTable={selectedTable} 
+                  onTableSelect={onTableSelect} 
+                />
+                <Separator />
+              </>
+            )}
+
             {localConfig.type !== 'histogram' && (
               <ColumnSelector
                 label="X-Axis Column"

@@ -18,6 +18,8 @@ interface SettingsModalProps {
   onMemoryBarToggle: () => void;
   useWebGL: boolean;
   onWebGLToggle: () => void;
+  chartRowLimit: number;
+  onChartRowLimitChange: (limit: number) => void;
 }
 
 interface OPFSInfo {
@@ -42,6 +44,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onMemoryBarToggle,
   useWebGL,
   onWebGLToggle,
+  chartRowLimit,
+  onChartRowLimitChange,
 }) => {
   const { db, multiTabStatus } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
@@ -291,6 +295,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Button onClick={onWebGLToggle} variant={useWebGL ? 'default' : 'secondary'}>
                   {useWebGL ? 'On' : 'Off'}
                 </Button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Chart Row Limit</span>
+                <input
+                  type="number"
+                  value={chartRowLimit}
+                  onChange={(e) => onChartRowLimitChange(parseInt(e.target.value, 10))}
+                  className="w-24 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-right"
+                />
               </div>
               <div className="mt-2">
                 <MemoryUsageBar />

@@ -21,8 +21,9 @@
 2. Write SQL: Use the built-in editor with hints
 3. Run query: Execute locally in your browser (DuckDB‑WASM)
 4. View results: Explore in a fast, virtualized grid
-5. Export/share: Download results (CSV, Parquet, JSON)
-6. Persist session: Your database is saved to OPFS automatically
+5. Visualize: Create charts from your query results
+6. Export/share: Download results (CSV, Parquet, JSON)
+7. Persist session: Your database is saved to OPFS automatically
 
 New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 
@@ -33,6 +34,7 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - Flexible formats: Open CSV, Parquet, and JSON; join multiple files using standard SQL.
 - Saved sessions: Your database persists to the browser’s file system (OPFS) so your work is there when you return.
 - Rich results viewer: Virtualized grid for smooth scrolling, quick inspection, and export to CSV/Parquet/JSON.
+- Visualization: Generate charts from your query results using Plotly.js.
 - Zero setup: Works as a static site; just open and start querying.
 
 ## Planned Features
@@ -41,7 +43,6 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - AWS + URL file ingestion
 - Full DuckDB syntax support in the editor
 - Import session from DuckDB file
-- BI interface powered by Plotly.js
 
 ## Quick Start
 
@@ -125,7 +126,7 @@ See `app/README.md` for supported browsers and current limitations.
 
 ## Acknowledgments
 
-- [DuckDB](https://duckdb.org/) team for the amazing analytical database
+- [DuckDB](https.duckdb.org/) team for the amazing analytical database
 - [DuckDB-WASM](https://github.com/duckdb/duckdb-wasm) for browser support
 - Next.js team for the excellent React framework
 

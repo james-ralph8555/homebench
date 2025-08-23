@@ -35,6 +35,7 @@ flowchart LR
 - Persistence: Session state saved to OPFS; queries/metadata saved to IndexedDB.
 - Multi‑tab safety: Single‑leader tab owns DuckDB; clients proxy queries via the multi‑tab transport.
 - Performance: Virtualized grids, query hints, and memory usage monitoring.
+- Visualization: Charting capabilities for query results.
 
 ## Browser Support
 
@@ -91,4 +92,15 @@ sequenceDiagram
   end
   M-->>Ops: streamed results
   Ops-->>UI: render grid/hints/metrics
+```
+
+## Visualization
+
+The application includes a visualization feature that allows users to generate charts from query results. This feature is implemented using Plotly.js.
+
+- **`components/Visualization.tsx`**: The main component that renders the chart. It receives the query results and chart configuration.
+- **`components/PlotlyChart.tsx`**: A wrapper around the Plotly.js library that handles chart rendering and updates.
+- **`components/ChartConfigSidebar.tsx`**: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
+- **`lib/plotlyTransform.ts`**: A utility that transforms the query results into a format that can be used by Plotly.js.
+
 ```

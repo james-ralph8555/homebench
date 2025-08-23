@@ -11,14 +11,21 @@ graph TD
     DuckDBProvider -->|db| TabbedWorkbench
     TabbedWorkbench --> FileUploader
     TabbedWorkbench --> DataPreview
-    TabbedWorkbench --> SQLEditor
+    TabbedWorkbench --> TabbedSQLEditor
+    TabbedSQLEditor --> SQLEditor
     TabbedWorkbench --> ResultsGrid
+    TabbedWorkbench --> Visualization
     TabbedWorkbench --> ExportButton
     TabbedWorkbench --> CollapsibleSidebar
     CollapsibleSidebar --> SchemaExplorer
     CollapsibleSidebar --> SavedQueries
     TabbedWorkbench -.-> SettingsModal
     TabbedWorkbench --> MemoryUsageBar
+    Visualization --> PlotlyChart
+    Visualization --> ChartConfigSidebar
+    Visualization --> ChartExportButton
+    ChartConfigSidebar --> ChartConfigModal
+    ChartConfigSidebar --> ChartTypeSelector
   end
 
   DuckDBProvider -->|instantiate + open OPFS DB| DuckDBWorker[(WASM Worker)]
@@ -31,6 +38,9 @@ graph TD
 - `TabbedWorkbench`: Main UI orchestrator for upload → query → results; lazy-loads heavy children.
 - `SQLEditor`: CodeMirror-based SQL editor with schema-aware autocomplete, debounced input, and one-dark theme.
 - `ResultsGrid`: AG Grid with virtualization; imports its own theme CSS.
+- `Visualization`: The main component that renders the chart. It receives the query results and chart configuration.
+- `PlotlyChart`: A wrapper around the Plotly.js library that handles chart rendering and updates.
+- `ChartConfigSidebar`: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
 - `FileUploader`: Ingests local files into DuckDB tables.
 - `DataPreview`: Lightweight preview of a selected table.
 - `SchemaExplorer`: Browses database schema and cached metadata.
@@ -39,6 +49,10 @@ graph TD
 - `MemoryUsageBar`: Displays memory usage and environment details.
 - `ExportButton`: Export current results to supported formats.
 - `CollapsibleSidebar`: Reusable collapsible wrapper for side panels.
+- `TabbedSQLEditor`: Manages multiple SQL editor tabs, allowing users to switch between and manage different queries.
+- `ChartConfigModal`: A modal dialog for advanced chart configuration options.
+- `ChartExportButton`: Provides functionality to export the generated chart.
+- `ChartTypeSelector`: Allows users to select and change the type of chart to display.
 
 
 ## UI Primitives
