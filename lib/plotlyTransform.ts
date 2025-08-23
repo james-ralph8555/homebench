@@ -12,6 +12,7 @@ export interface ChartConfig {
   yTitle?: string;
   showLegend?: boolean;
   useWebGL?: boolean;
+  nbins?: number;
 }
 
 export interface PlotlyData {
@@ -361,7 +362,7 @@ const createHistogramTrace = (data: any[], config: ChartConfig): Partial<PlotDat
     type: 'histogram',
     x,
     name: config.xColumn,
-    ...(x.length > 10 && { nbinsx: Math.min(50, Math.ceil(Math.sqrt(x.length))) }), // Optimal bin count
+    nbinsx: config.nbins,
     marker: {
       color: 'rgba(55, 128, 191, 0.7)',
       line: {
@@ -369,7 +370,7 @@ const createHistogramTrace = (data: any[], config: ChartConfig): Partial<PlotDat
         width: 1
       }
     }
-  } as any; // Cast to any to handle the nbinsx property
+  } as any;
 
   return [trace];
 };

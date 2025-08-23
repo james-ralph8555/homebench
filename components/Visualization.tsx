@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Separator } from '@/components/ui/Separator';
 import PlotlyChart from './PlotlyChart';
 import ChartTypeSelector, { QuickChartButtons } from './ChartTypeSelector';
-import ChartConfigModal from './ChartConfigModal';
+import { ChartConfigSidebar } from './ChartConfigSidebar';
 import ChartExportButton from './ChartExportButton';
 import { 
   ChartConfig, 
@@ -22,25 +22,30 @@ interface VisualizationProps {
   data: ArrowTable | null;
   theme?: 'light' | 'dark';
   className?: string;
+  useWebGL?: boolean;
 }
 
 export const Visualization: React.FC<VisualizationProps> = ({
   data,
   theme = 'dark',
-  className = ''
+  className = '',
+  useWebGL = false,
 }) => {
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     type: 'scatter',
     title: 'Query Results',
-    showLegend: true
+    showLegend: true,
+    useWebGL: useWebGL,
   });
-  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [chartError, setChartError] = useState<PlotlyTransformError | null>(null);
   const [isChartReady, setIsChartReady] = useState<boolean>(false);
   const [performanceAnalysis, setPerformanceAnalysis] = useState<ChartPerformanceAnalysis | null>(null);
   const chartRef = React.useRef<any>(null);
 
-  // Get available columns from data
+  React.useEffect(() => {
+    setChartConfig(prev => ({ ...prev, useWebGL }));
+  }, [useWebGL]);
   const availableColumns = useMemo(() => {
     return data ? data.schema.fields.map(field => field.name) : [];
   }, [data]);
@@ -139,8 +144,8 @@ export const Visualization: React.FC<VisualizationProps> = ({
   }
 
   return (
-    <div className={className}>
-      <div className="space-y-6">
+    <div className={`${className} flex`}>
+      <div className="flex-grow space-y-6">
         {/* Chart Controls */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
@@ -154,7 +159,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
-                onClick={() => setShowConfigModal(true)}
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 disabled={!data}
               >
                 <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -162,7 +167,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
                     d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Configure
+                {isSidebarCollapsed ? 'Show' : 'Hide'} Config
               </Button>
               
               <ChartExportButton
@@ -344,10 +349,9 @@ export const Visualization: React.FC<VisualizationProps> = ({
         </div>
       </div>
 
-      {/* Configuration Modal */}
-      <ChartConfigModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
+      <ChartConfigSidebar 
+        isCollapsed={isSidebarCollapsed} 
+        onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         config={chartConfig}
         onConfigChange={handleConfigChange}
         data={data}
@@ -355,5 +359,3 @@ export const Visualization: React.FC<VisualizationProps> = ({
     </div>
   );
 };
-
-export default Visualization;

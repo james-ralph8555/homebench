@@ -82,6 +82,11 @@ export const TabbedWorkbench: React.FC = () => {
     const stored = localStorage.getItem('showMemoryBar');
     return stored === 'true';
   });
+  const [useWebGL, setUseWebGL] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('useWebGL');
+    return stored === 'true';
+  });
   const [resultsViewMode, setResultsViewMode] = useState<'grid' | 'chart'>('grid');
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
@@ -100,6 +105,10 @@ export const TabbedWorkbench: React.FC = () => {
   React.useEffect(() => {
     try { localStorage.setItem('showMemoryBar', String(showMemoryBar)); } catch {}
   }, [showMemoryBar]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem('useWebGL', String(useWebGL)); } catch {}
+  }, [useWebGL]);
 
   // Auto-load session on component mount
   React.useEffect(() => {
@@ -516,6 +525,7 @@ export const TabbedWorkbench: React.FC = () => {
                       <Visualization 
                         data={results} 
                         theme={theme}
+                        useWebGL={useWebGL}
                       />
                     </Suspense>
                   )}
@@ -530,6 +540,7 @@ export const TabbedWorkbench: React.FC = () => {
               <Visualization 
                 data={results} 
                 theme={theme}
+                useWebGL={useWebGL}
               />
             </Suspense>
           </TabsContent>
@@ -546,6 +557,8 @@ export const TabbedWorkbench: React.FC = () => {
             onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
             showMemoryBar={showMemoryBar}
             onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
+            useWebGL={useWebGL}
+            onWebGLToggle={() => setUseWebGL(prev => !prev)}
           />
         </Suspense>
       )}

@@ -16,6 +16,8 @@ interface SettingsModalProps {
   onThemeToggle: () => void;
   showMemoryBar: boolean;
   onMemoryBarToggle: () => void;
+  useWebGL: boolean;
+  onWebGLToggle: () => void;
 }
 
 interface OPFSInfo {
@@ -38,6 +40,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onThemeToggle,
   showMemoryBar,
   onMemoryBarToggle,
+  useWebGL,
+  onWebGLToggle,
 }) => {
   const { db, multiTabStatus } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
@@ -280,6 +284,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="text-gray-700 dark:text-gray-300">Memory Bar</span>
                 <Button onClick={onMemoryBarToggle} variant={showMemoryBar ? 'default' : 'secondary'}>
                   {showMemoryBar ? 'On' : 'Off'}
+                </Button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700 dark:text-gray-300">Use WebGL for Charts</span>
+                <Button onClick={onWebGLToggle} variant={useWebGL ? 'default' : 'secondary'}>
+                  {useWebGL ? 'On' : 'Off'}
                 </Button>
               </div>
               <div className="mt-2">
