@@ -141,7 +141,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full stable-container">
       <div
         className={`
           border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
@@ -151,6 +151,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
           }
           ${isUploading ? 'pointer-events-none opacity-50' : ''}
         `}
+        style={{ minHeight: '160px' }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -180,11 +181,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         </div>
       </div>
       
-      {message && (
-        <div className="mt-4 p-3 rounded-md bg-gray-50 dark:bg-gray-800">
-          <p className="text-sm">{message}</p>
-        </div>
-      )}
+      <div className="mt-4 stable-container" style={{ minHeight: message ? 'auto' : '0px' }}>
+        {message && (
+          <div className="p-3 rounded-md bg-gray-50 dark:bg-gray-800">
+            <p className="text-sm">{message}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -109,20 +109,28 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', 
   // Handle empty data after all hooks
   if (!data || data.numRows === 0) {
     return (
-      <div className={`flex items-center justify-center h-64 border border-gray-300 dark:border-gray-600 rounded-lg ${className}`}>
-        <div className="text-center text-gray-500 dark:text-gray-400">
-          <div className="mb-2 text-gray-400 flex justify-center">
-            <ChartIcon />
+      <div className={`stable-container ${className}`}>
+        <div className="mb-2 space-y-1">
+          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+            <span>No results</span>
+            <span className="text-xs">Waiting for query...</span>
           </div>
-          <p>No data to display</p>
-          <p className="text-sm">Run a query to see results here</p>
+        </div>
+        <div className="flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded-lg" style={{ height: 500 }}>
+          <div className="text-center text-gray-500 dark:text-gray-400">
+            <div className="mb-2 text-gray-400 flex justify-center">
+              <ChartIcon />
+            </div>
+            <p>No data to display</p>
+            <p className="text-sm">Run a query to see results here</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`${className}`}>
+    <div className={`stable-container ${className}`}>
       <div className="mb-2 space-y-1">
         <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
           <span>Showing {rowCount.toLocaleString()} rows × {columnDefs.length} columns</span>

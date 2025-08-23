@@ -29,7 +29,7 @@ graph TD
 ## Key Components
 
 - `TabbedWorkbench`: Main UI orchestrator for upload → query → results; lazy-loads heavy children.
-- `SQLEditor`: CodeMirror-based editor with monospace font vars and tuned setup.
+- `SQLEditor`: CodeMirror-based SQL editor with schema-aware autocomplete, debounced input, and one-dark theme.
 - `ResultsGrid`: AG Grid with virtualization; imports its own theme CSS.
 - `FileUploader`: Ingests local files into DuckDB tables.
 - `DataPreview`: Lightweight preview of a selected table.
@@ -74,4 +74,22 @@ Reusable, focused building blocks located in `components/ui/`:
 
 ## Query Access
 
-- Always go through `lib/durableOperations` (`executeReadQuery`, `executeStreamingReadQuery`, `executeDurableWrite`) so client tabs proxy to the leader via `DuckDBManager`.
+- Prefer `lib/durableOperations` (`executeReadQuery`, `executeStreamingReadQuery`, `executeDurableWrite`) so client tabs proxy to the leader via `DuckDBManager`.
+- The `SQLEditor` reads `information_schema` via `lib/multiTabQuery.executeQuery` to power autocomplete (read-only, multi‑tab aware).
+
+## SQLEditor
+
+Location: `components/SQLEditor.tsx` (client component)
+
+- Props: `value: string`, `onChange(value: string) => void`, `className?: string`.
+- Autocomplete: Loads DuckDB schema from `information_schema.tables/columns` and builds a CodeMirror schema map with both `main.<table>` and unqualified `<table>` keys. Results are cached in‑memory for 5 seconds to avoid excessive queries.
+- Performance: Uses a 150ms debounced `onChange` (via `@/lib/performanceUtils`) while also updating the parent immediately for UI responsiveness.
+- SQL setup: `@codemirror/lang-sql` with `upperCaseKeywords: true` and `defaultSchema: 'main'`; line wrapping enabled.
+- Theme and fonts: `@codemirror/theme-one-dark` with editor theming for 14px mono (`--font-jetbrains-mono`) and comfortable padding/line‑height.
+- Basic features: Line numbers, fold gutter, bracket matching, close brackets, and autocompletion enabled; drop cursor disabled; selection match highlight disabled for performance.
+- UX defaults: 200px height with a helpful placeholder; container uses rounded borders and dark‑mode aware border colors.
+
+Notes
+
+- Schema refresh: The editor loads schema on mount and when the DB handle changes. It uses a short cache; if you add/drop tables, remount the editor or wait briefly before re‑opening it to refresh suggestions.
+- Query execution: The editor itself does not run queries; actions like “Run Query” live in `TabbedWorkbench` and use `lib/durableOperations`.

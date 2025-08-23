@@ -16,31 +16,31 @@ import { Button } from '@/components/ui/Button';
 
 // Dynamic imports for heavy components - loaded only when needed
 const FileUploader = dynamic(() => import('./FileUploader').then(mod => ({ default: mod.FileUploader })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-32" />
+  loading: () => <div className="animate-pulse stable-skeleton-uploader" />
 });
 
 const DataPreview = dynamic(() => import('./DataPreview').then(mod => ({ default: mod.DataPreview })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />
+  loading: () => <div className="animate-pulse stable-skeleton-preview" />
 });
 
 const SQLEditor = dynamic(() => import('./SQLEditor').then(mod => ({ default: mod.SQLEditor })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-40" />
+  loading: () => <div className="animate-pulse stable-skeleton-editor" />
 });
 
 const ResultsGrid = dynamic(() => import('./ResultsGrid').then(mod => ({ default: mod.ResultsGrid })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />
+  loading: () => <div className="animate-pulse stable-skeleton-results" />
 });
 
 const ExportButton = dynamic(() => import('./ExportButton').then(mod => ({ default: mod.ExportButton })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded w-20 h-8" />
+  loading: () => <div className="animate-pulse stable-skeleton-export" />
 });
 
 const SchemaExplorer = dynamic(() => import('./SchemaExplorer').then(mod => ({ default: mod.SchemaExplorer })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />
+  loading: () => <div className="animate-pulse stable-skeleton-sidebar" />
 });
 
 const SavedQueries = dynamic(() => import('./SavedQueries').then(mod => ({ default: mod.SavedQueries })), {
-  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />
+  loading: () => <div className="animate-pulse stable-skeleton-sidebar" />
 });
 
 const SettingsModal = dynamic(() => import('./SettingsModal').then(mod => ({ default: mod.SettingsModal })), {
@@ -231,13 +231,17 @@ export const TabbedWorkbench: React.FC = () => {
                   alt="HomeBench logo" 
                   width={32} 
                   height={32} 
-                  className="rounded" 
+                  className="rounded aspect-logo" 
                   priority
+                  placeholder="blur"
+                  blurDataURL="data:image/webp;base64,UklGRjoAAABXRUJQVlA4WAoAAAAQAAAADwAABwAAQUxQSDIAAAARL0AmbZurmr57yyIiqE8oiG0bejIYEQTgqiDA9vqnsUSI6H+oAERp2HZ65qP/VIAWAFZQOCBCAAAA8AEAnQEqEAAIAAVAfCWkAALp8sF8rgRgAP7o9FDvMCkMde9PK7euH5M1m6VWoDXf2FkP3BqV0ZYbO6NA/VFIAAAA"
                 />
                 <h1 className="text-2xl sm:text-3xl font-bold">HomeBench</h1>
               </div>
               <div className="flex items-center space-x-3">
-                {showMemoryBar && <MemoryUsageBar />}
+                <div className="stable-container">
+                  {showMemoryBar && <MemoryUsageBar />}
+                </div>
                 <Button
                   onClick={() => setShowSettings(true)}
                   variant="ghost"
@@ -271,7 +275,7 @@ export const TabbedWorkbench: React.FC = () => {
               {/* Upload Section */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Upload Data</h3>
-                <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-32" />}>
+                <Suspense fallback={<div className="animate-pulse stable-skeleton-uploader" />}>
                   <FileUploader onFileUploaded={handleFileUploaded} />
                 </Suspense>
               </div>
@@ -280,7 +284,7 @@ export const TabbedWorkbench: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">
-                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />}>
+                  <Suspense fallback={<div className="animate-pulse stable-skeleton-preview" />}>
                     <DataPreview tableName={previewTable} />
                   </Suspense>
                 </div>
@@ -306,7 +310,7 @@ export const TabbedWorkbench: React.FC = () => {
                   </div>
                   
                   <CollapsibleSidebar title="Schema" defaultExpanded={true}>
-                    <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />}>
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
                       <SchemaExplorer 
                         onTableSelect={insertTableName}
                         onColumnSelect={insertColumnName}
@@ -316,7 +320,7 @@ export const TabbedWorkbench: React.FC = () => {
                   </CollapsibleSidebar>
 
                   <CollapsibleSidebar title="Saved Queries" defaultExpanded={true}>
-                    <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />}>
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
                       <SavedQueries 
                         onQuerySelect={setSql} 
                         currentQuery={sql} 
@@ -349,7 +353,7 @@ export const TabbedWorkbench: React.FC = () => {
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                      <div className="text-sm">
+                      <div className="text-sm stable-status-container">
                         {restoreMessage ? (
                           <span className="text-blue-600 dark:text-blue-400">{restoreMessage}</span>
                         ) : !hasWriteAccess ? (
@@ -399,7 +403,7 @@ export const TabbedWorkbench: React.FC = () => {
                             'Run Query'
                           )}
                         </Button>
-                        <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded w-20 h-8" />}>
+                        <Suspense fallback={<div className="animate-pulse stable-skeleton-export" />}>
                           <ExportButton 
                             query={sql} 
                             disabled={!results || isQuerying}
@@ -408,40 +412,44 @@ export const TabbedWorkbench: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-40" />}>
+                  <Suspense fallback={<div className="animate-pulse stable-skeleton-editor" />}>
                     <SQLEditor value={sql} onChange={setSql} />
                   </Suspense>
                 </div>
 
                 {/* Performance Hints */}
-                {queryHints.length > 0 && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                      Performance Hints
-                    </h4>
-                    <ul className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
-                      {queryHints.map((hint, index) => (
-                        <li key={index}>• {hint}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <div className={`stable-hints-container ${queryHints.length > 0 ? 'has-content' : ''}`}>
+                  {queryHints.length > 0 && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
+                        Performance Hints
+                      </h4>
+                      <ul className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
+                        {queryHints.map((hint, index) => (
+                          <li key={index}>• {hint}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
 
                 {/* Query Metrics */}
-                {queryMetrics && (
-                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Query executed in {queryMetrics.duration.toFixed(2)}ms
-                      </span>
-                      {queryMetrics.memory && (
+                <div className="stable-metrics-container">
+                  {queryMetrics && (
+                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">
-                          Memory: {(queryMetrics.memory / 1024 / 1024).toFixed(2)}MB
+                          Query executed in {queryMetrics.duration.toFixed(2)}ms
                         </span>
-                      )}
+                        {queryMetrics.memory && (
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Memory: {(queryMetrics.memory / 1024 / 1024).toFixed(2)}MB
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Error Display */}
                 {error && (
@@ -458,7 +466,7 @@ export const TabbedWorkbench: React.FC = () => {
                 {/* Results Grid */}
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Query Results</h3>
-                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />}>
+                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
                     <ResultsGrid data={results!} theme={theme} />
                   </Suspense>
                 </div>
