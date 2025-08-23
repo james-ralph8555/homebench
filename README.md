@@ -3,7 +3,7 @@
 <table>
   <tr>
     <td width="140" valign="middle">
-      <img src="public/logo.png" alt="HomeBench logo" width="128" />
+      <img src="public/logo-original.png" alt="HomeBench logo" width="128" />
     </td>
     <td valign="middle">
       <p>
@@ -119,17 +119,9 @@ This repo uses Vitest with a `jsdom` environment to unit test browser-facing uti
 - `test/setup.ts` loads `fake-indexeddb/auto` and adds small polyfills (e.g., `URL.createObjectURL`).
 - Coverage reports are generated with the `v8` provider into `coverage/`.
 
-## Performance
-
-Performance optimizations and best practices are documented in `lib/README.md`.
-
-[![Lighthouse Performance](https://raw.githubusercontent.com/emazzotta/lighthouse-badges/master/assets/img/scores/lighthouse_performance.svg)](https://github.com/GoogleChrome/lighthouse)
-
 ## Browser Support & Limitations
 
 See `app/README.md` for supported browsers and current limitations.
-
- 
 
 ## Acknowledgments
 
