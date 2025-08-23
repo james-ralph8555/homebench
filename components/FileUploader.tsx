@@ -86,8 +86,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
       const duration = performance.now() - startTime;
       const rowsText = result.rowsAffected ? ` (${result.rowsAffected} rows)` : '';
       
-      setMessage(`✅ Successfully loaded ${file.name} as table "${tableName}"${rowsText} in ${duration.toFixed(0)}ms`);
-      console.log(`📊 Table "${tableName}" created from ${file.name} with durable persistence in ${duration.toFixed(2)}ms`);
+      setMessage(`Successfully loaded ${file.name} as table "${tableName}"${rowsText} in ${duration.toFixed(0)}ms`);
+      console.log(`Table "${tableName}" created from ${file.name} with durable persistence in ${duration.toFixed(2)}ms`);
       
       onFileUploaded?.(tableName);
     } catch (e: any) {

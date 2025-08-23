@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
 import { MemoryUsageBar } from './MemoryUsageBar';
-import { GearIcon, TriangleIcon } from './icons';
+import { GearIcon, TriangleIcon, InfoIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
@@ -277,9 +277,19 @@ export const TabbedWorkbench: React.FC = () => {
               </div>
             </div>
             {/* Tagline under the row on all sizes */}
-            <p className="text-gray-600 dark:text-gray-400">
-              Privacy-by-Design SQL Workbench
-            </p>
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <span>Privacy-by-Design SQL Workbench</span>
+              <div className="relative group">
+                <InfoIcon 
+                  size={14} 
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors" 
+                />
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                  HomeBench processes all your data locally in your browser. Nothing is ever sent to our servers.
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 

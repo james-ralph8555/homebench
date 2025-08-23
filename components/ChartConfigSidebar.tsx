@@ -218,6 +218,7 @@ interface ChartConfigSidebarProps {
   tables?: string[];
   selectedTable?: string;
   onTableSelect?: (table: string) => void;
+  isMobile?: boolean;
 }
 
 export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({ 
@@ -228,7 +229,8 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
   data, 
   tables = [],
   selectedTable,
-  onTableSelect
+  onTableSelect,
+  isMobile = false
 }) => {
   const [localConfig, setLocalConfig] = React.useState<ChartConfig>(config);
 
@@ -276,7 +278,7 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
     }
   };
 
-  if (isCollapsed) {
+  if (isCollapsed && !isMobile) {
     return (
       <div className="p-2">
         <Button onClick={onCollapseToggle} variant="ghost" size="icon">
@@ -286,13 +288,19 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
     );
   }
 
+  const containerClasses = isMobile 
+    ? "w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4" 
+    : "w-80 border-l border-gray-200 dark:border-gray-700 p-4";
+
   return (
-    <div className="w-80 border-l border-gray-200 dark:border-gray-700 p-4">
+    <div className={containerClasses}>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Configure Chart</h3>
-        <Button onClick={onCollapseToggle} variant="ghost" size="icon">
-          <TriangleIcon className="transform -rotate-90" />
-        </Button>
+        {!isMobile && (
+          <Button onClick={onCollapseToggle} variant="ghost" size="icon">
+            <TriangleIcon className="transform -rotate-90" />
+          </Button>
+        )}
       </div>
       <Tabs defaultValue="data-mapping">
         <TabsList className="grid w-full grid-cols-2">
@@ -300,7 +308,7 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
         <TabsContent value="data-mapping">
-          <div className="p-4 space-y-4">
+          <div className={isMobile ? "p-2 space-y-3" : "p-4 space-y-4"}>
             {tables.length > 0 && onTableSelect && (
               <>
                 <TableSelector 
@@ -386,7 +394,7 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
           </div>
         </TabsContent>
         <TabsContent value="appearance">
-          <div className="p-4 space-y-4">
+          <div className={isMobile ? "p-2 space-y-3" : "p-4 space-y-4"}>
             <TextInput
               label="Chart Title"
               value={localConfig.title}
@@ -394,7 +402,7 @@ export const ChartConfigSidebar: React.FC<ChartConfigSidebarProps> = ({
               placeholder="Enter chart title"
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className={isMobile ? "space-y-3" : "grid grid-cols-2 gap-4"}>
               <TextInput
                 label="X-Axis Title"
                 value={localConfig.xTitle}
