@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Table as ArrowTable } from 'apache-arrow';
 import { Button } from '@/components/ui/Button';
 import { Separator } from '@/components/ui/Separator';
@@ -17,12 +17,15 @@ import {
   ChartPerformanceAnalyzer, 
   ChartPerformanceAnalysis 
 } from '@/lib/chartPerformanceUtils';
+import { getTables } from '@/lib/duckdbManager';
+import { executeReadQuery } from '@/lib/durableOperations';
 
 interface VisualizationProps {
-  data: ArrowTable | null;
+  data?: ArrowTable | null;
   theme?: 'light' | 'dark';
   className?: string;
   useWebGL?: boolean;
+  initialTable?: string;
 }
 
 export const Visualization: React.FC<VisualizationProps> = ({
@@ -30,6 +33,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
   theme = 'dark',
   className = '',
   useWebGL = false,
+  initialTable,
 }) => {
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     type: 'scatter',
@@ -42,45 +46,78 @@ export const Visualization: React.FC<VisualizationProps> = ({
   const [isChartReady, setIsChartReady] = useState<boolean>(false);
   const [performanceAnalysis, setPerformanceAnalysis] = useState<ChartPerformanceAnalysis | null>(null);
   const chartRef = React.useRef<any>(null);
+  const [tables, setTables] = useState<string[]>([]);
+  const [selectedTable, setSelectedTable] = useState<string | undefined>(initialTable);
+  const [tableData, setTableData] = useState<ArrowTable | null>(null);
+
+  const chartData = tableData || data;
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      try {
+        const tableList = await getTables();
+        setTables(tableList);
+        if (tableList.length > 0 && !selectedTable) {
+          setSelectedTable(tableList[0]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch tables:', error);
+      }
+    };
+    fetchTables();
+  }, [selectedTable]);
+
+  useEffect(() => {
+    if (selectedTable) {
+      const fetchTableData = async () => {
+        try {
+          const result = await executeReadQuery(`SELECT * FROM "${selectedTable}"`);
+          setTableData(result as ArrowTable);
+        } catch (error) {
+          console.error(`Failed to fetch data for table ${selectedTable}:`, error);
+          setChartError(new PlotlyTransformError(`Failed to load data for table: ${selectedTable}`, 'INVALID_DATA'));
+          setTableData(null);
+        }
+      };
+      fetchTableData();
+    }
+  }, [selectedTable]);
 
   React.useEffect(() => {
     setChartConfig(prev => ({ ...prev, useWebGL }));
   }, [useWebGL]);
+
   const availableColumns = useMemo(() => {
-    return data ? data.schema.fields.map(field => field.name) : [];
-  }, [data]);
+    return chartData ? chartData.schema.fields.map(field => field.name) : [];
+  }, [chartData]);
 
-  // Get smart chart suggestions when data changes
   const chartSuggestions = useMemo(() => {
-    return data ? suggestChartConfig(data) : [];
-  }, [data]);
+    return chartData ? suggestChartConfig(chartData) : [];
+  }, [chartData]);
 
-  // Auto-apply first suggestion and analyze performance when data changes
   React.useEffect(() => {
-    if (data && chartSuggestions.length > 0 && !chartConfig.xColumn) {
+    if (chartData && chartSuggestions.length > 0 && !chartConfig.xColumn) {
       const firstSuggestion = chartSuggestions[0];
-      const optimizedConfig = ChartPerformanceAnalyzer.optimizeChartConfig(data, firstSuggestion);
+      const optimizedConfig = ChartPerformanceAnalyzer.optimizeChartConfig(chartData, firstSuggestion);
       
       setChartConfig(prev => ({
         ...prev,
         ...optimizedConfig,
-        title: optimizedConfig.title || `Chart of ${data.numRows.toLocaleString()} rows`
+        title: optimizedConfig.title || `Chart of ${chartData.numRows.toLocaleString()} rows`
       }));
     }
-  }, [data, chartSuggestions, chartConfig.xColumn]); // Include xColumn specifically to avoid infinite loop
+  }, [chartData, chartSuggestions, chartConfig.xColumn]);
 
-  // Analyze performance when data or config changes
   React.useEffect(() => {
-    if (data && data.numRows > 0 && chartConfig.xColumn) {
-      const analysis = ChartPerformanceAnalyzer.analyzePerformance(data, chartConfig);
+    if (chartData && chartData.numRows > 0 && chartConfig.xColumn) {
+      const analysis = ChartPerformanceAnalyzer.analyzePerformance(chartData, chartConfig);
       setPerformanceAnalysis(analysis);
     } else {
       setPerformanceAnalysis(null);
     }
-  }, [data, chartConfig]);
+  }, [chartData, chartConfig]);
 
   const handleChartTypeChange = useCallback((type: ChartConfig['type']) => {
-    // Find a suggestion for this chart type, or create basic config
     const suggestion = chartSuggestions.find(s => s.type === type);
     
     if (suggestion) {
@@ -92,7 +129,6 @@ export const Visualization: React.FC<VisualizationProps> = ({
       setChartConfig({
         ...chartConfig,
         type,
-        // Clear columns if switching to histogram, keep them for other types
         xColumn: type === 'histogram' && availableColumns.length > 0 ? availableColumns[0] : chartConfig.xColumn,
         yColumn: type === 'histogram' ? undefined : chartConfig.yColumn
       });
@@ -123,8 +159,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
     setChartError(null);
   }, [chartConfig]);
 
-  // No data state
-  if (!data || data.numRows === 0) {
+  if (!chartData || chartData.numRows === 0) {
     return (
       <div className={`${className}`}>
         <div className="bg-background border border-gray-200 dark:border-gray-700 rounded-lg p-8">
@@ -136,7 +171,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-semibold mb-2">No Data to Visualize</h3>
-            <p>Run a SQL query to generate charts and visualizations</p>
+            <p>Run a SQL query or select a table to generate charts.</p>
           </div>
         </div>
       </div>
@@ -146,49 +181,33 @@ export const Visualization: React.FC<VisualizationProps> = ({
   return (
     <div className={`${className} flex`}>
       <div className="flex-grow space-y-6">
-        {/* Chart Controls */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <div>
               <h3 className="text-lg font-semibold">Data Visualization</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {data.numRows.toLocaleString()} rows × {availableColumns.length} columns
+                {chartData.numRows.toLocaleString()} rows × {availableColumns.length} columns
               </p>
             </div>
             
             <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                disabled={!data}
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {isSidebarCollapsed ? 'Show' : 'Hide'} Config
-              </Button>
-              
               <ChartExportButton
                 plotRef={chartRef}
-                data={data}
+                data={chartData}
                 config={chartConfig}
-                disabled={!isChartReady || !data}
+                disabled={!isChartReady || !chartData}
               />
             </div>
           </div>
 
-          {/* Quick Chart Type Buttons */}
           <QuickChartButtons
             onTypeChange={handleChartTypeChange}
             availableColumns={availableColumns}
-            disabled={!data}
+            disabled={!chartData}
           />
 
           <Separator />
 
-          {/* Smart Suggestions */}
           {chartSuggestions.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -211,7 +230,6 @@ export const Visualization: React.FC<VisualizationProps> = ({
           )}
         </div>
 
-        {/* Error Display */}
         {chartError && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
             <div className="flex items-start space-x-3">
@@ -237,7 +255,6 @@ export const Visualization: React.FC<VisualizationProps> = ({
           </div>
         )}
 
-        {/* Performance Warnings */}
         {performanceAnalysis && performanceAnalysis.recommendations.length > 0 && (
           <div className="space-y-3">
             {performanceAnalysis.recommendations
@@ -312,17 +329,15 @@ export const Visualization: React.FC<VisualizationProps> = ({
           </div>
         )}
 
-        {/* Chart Display */}
         <PlotlyChart
           ref={chartRef}
-          data={data}
+          data={chartData}
           config={chartConfig}
           theme={theme}
           onError={handleChartError}
           onChartReady={handleChartReady}
         />
 
-        {/* Chart Info */}
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -354,7 +369,10 @@ export const Visualization: React.FC<VisualizationProps> = ({
         onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         config={chartConfig}
         onConfigChange={handleConfigChange}
-        data={data}
+        data={chartData}
+        tables={tables}
+        selectedTable={selectedTable}
+        onTableSelect={setSelectedTable}
       />
     </div>
   );
