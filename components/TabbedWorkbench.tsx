@@ -48,7 +48,11 @@ const SettingsModal = dynamic(() => import('./SettingsModal').then(mod => ({ def
   loading: () => null
 });
 
-type TabType = 'upload' | 'query';
+const Visualization = dynamic(() => import('./Visualization').then(mod => ({ default: mod.Visualization })), {
+  loading: () => <div className="animate-pulse stable-skeleton-visualization" />
+});
+
+type TabType = 'upload' | 'query' | 'visualization';
 
 export const TabbedWorkbench: React.FC = () => {
   const { db, isLoading, error: dbError, isSaving, hasWriteAccess, multiTabStatus } = useDuckDB();
@@ -78,6 +82,7 @@ export const TabbedWorkbench: React.FC = () => {
     const stored = localStorage.getItem('showMemoryBar');
     return stored === 'true';
   });
+  const [resultsViewMode, setResultsViewMode] = useState<'grid' | 'chart'>('grid');
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
@@ -266,6 +271,7 @@ export const TabbedWorkbench: React.FC = () => {
             <TabsList>
               <TabsTrigger value="upload">Data Upload</TabsTrigger>
               <TabsTrigger value="query">Query Editor</TabsTrigger>
+              <TabsTrigger value="visualization">Visualization</TabsTrigger>
             </TabsList>
           </div>
 
@@ -463,16 +469,69 @@ export const TabbedWorkbench: React.FC = () => {
                   </div>
                 )}
 
-                {/* Results Grid */}
+                {/* Results Section */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-3">Query Results</h3>
-                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
-                    <ResultsGrid data={results!} theme={theme} />
-                  </Suspense>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold">Query Results</h3>
+                    {results && results.numRows > 0 && (
+                      <div className="flex items-center space-x-1 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
+                        <button
+                          onClick={() => setResultsViewMode('grid')}
+                          className={`px-3 py-1 text-sm rounded ${
+                            resultsViewMode === 'grid'
+                              ? 'bg-blue-500 text-white'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          title="Table view"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M3 10h18M3 6h18m-9 8h9m-9 4h9m-9-8H3m0 4h6" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setResultsViewMode('chart')}
+                          className={`px-3 py-1 text-sm rounded ${
+                            resultsViewMode === 'chart'
+                              ? 'bg-blue-500 text-white'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                          }`}
+                          title="Chart view"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {resultsViewMode === 'grid' ? (
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
+                      <ResultsGrid data={results!} theme={theme} />
+                    </Suspense>
+                  ) : (
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-visualization" />}>
+                      <Visualization 
+                        data={results} 
+                        theme={theme}
+                      />
+                    </Suspense>
+                  )}
                 </div>
               </div>
             </div>
           </div>
+          </TabsContent>
+
+          <TabsContent value="visualization">
+            <Suspense fallback={<div className="animate-pulse stable-skeleton-visualization" />}>
+              <Visualization 
+                data={results} 
+                theme={theme}
+              />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>

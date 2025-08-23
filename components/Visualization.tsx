@@ -1,0 +1,359 @@
+'use client';
+
+import React, { useState, useMemo, useCallback } from 'react';
+import { Table as ArrowTable } from 'apache-arrow';
+import { Button } from '@/components/ui/Button';
+import { Separator } from '@/components/ui/Separator';
+import PlotlyChart from './PlotlyChart';
+import ChartTypeSelector, { QuickChartButtons } from './ChartTypeSelector';
+import ChartConfigModal from './ChartConfigModal';
+import ChartExportButton from './ChartExportButton';
+import { 
+  ChartConfig, 
+  suggestChartConfig, 
+  PlotlyTransformError 
+} from '@/lib/plotlyTransform';
+import { 
+  ChartPerformanceAnalyzer, 
+  ChartPerformanceAnalysis 
+} from '@/lib/chartPerformanceUtils';
+
+interface VisualizationProps {
+  data: ArrowTable | null;
+  theme?: 'light' | 'dark';
+  className?: string;
+}
+
+export const Visualization: React.FC<VisualizationProps> = ({
+  data,
+  theme = 'dark',
+  className = ''
+}) => {
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({
+    type: 'scatter',
+    title: 'Query Results',
+    showLegend: true
+  });
+  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
+  const [chartError, setChartError] = useState<PlotlyTransformError | null>(null);
+  const [isChartReady, setIsChartReady] = useState<boolean>(false);
+  const [performanceAnalysis, setPerformanceAnalysis] = useState<ChartPerformanceAnalysis | null>(null);
+  const chartRef = React.useRef<any>(null);
+
+  // Get available columns from data
+  const availableColumns = useMemo(() => {
+    return data ? data.schema.fields.map(field => field.name) : [];
+  }, [data]);
+
+  // Get smart chart suggestions when data changes
+  const chartSuggestions = useMemo(() => {
+    return data ? suggestChartConfig(data) : [];
+  }, [data]);
+
+  // Auto-apply first suggestion and analyze performance when data changes
+  React.useEffect(() => {
+    if (data && chartSuggestions.length > 0 && !chartConfig.xColumn) {
+      const firstSuggestion = chartSuggestions[0];
+      const optimizedConfig = ChartPerformanceAnalyzer.optimizeChartConfig(data, firstSuggestion);
+      
+      setChartConfig(prev => ({
+        ...prev,
+        ...optimizedConfig,
+        title: optimizedConfig.title || `Chart of ${data.numRows.toLocaleString()} rows`
+      }));
+    }
+  }, [data, chartSuggestions, chartConfig.xColumn]); // Include xColumn specifically to avoid infinite loop
+
+  // Analyze performance when data or config changes
+  React.useEffect(() => {
+    if (data && data.numRows > 0 && chartConfig.xColumn) {
+      const analysis = ChartPerformanceAnalyzer.analyzePerformance(data, chartConfig);
+      setPerformanceAnalysis(analysis);
+    } else {
+      setPerformanceAnalysis(null);
+    }
+  }, [data, chartConfig]);
+
+  const handleChartTypeChange = useCallback((type: ChartConfig['type']) => {
+    // Find a suggestion for this chart type, or create basic config
+    const suggestion = chartSuggestions.find(s => s.type === type);
+    
+    if (suggestion) {
+      setChartConfig({
+        ...chartConfig,
+        ...suggestion
+      });
+    } else {
+      setChartConfig({
+        ...chartConfig,
+        type,
+        // Clear columns if switching to histogram, keep them for other types
+        xColumn: type === 'histogram' && availableColumns.length > 0 ? availableColumns[0] : chartConfig.xColumn,
+        yColumn: type === 'histogram' ? undefined : chartConfig.yColumn
+      });
+    }
+    setChartError(null);
+  }, [chartConfig, chartSuggestions, availableColumns]);
+
+  const handleConfigChange = useCallback((newConfig: ChartConfig) => {
+    setChartConfig(newConfig);
+    setChartError(null);
+  }, []);
+
+  const handleChartError = useCallback((error: PlotlyTransformError) => {
+    setChartError(error);
+    setIsChartReady(false);
+  }, []);
+
+  const handleChartReady = useCallback(() => {
+    setChartError(null);
+    setIsChartReady(true);
+  }, []);
+
+  const applyQuickSuggestion = useCallback((suggestion: ChartConfig) => {
+    setChartConfig({
+      ...chartConfig,
+      ...suggestion
+    });
+    setChartError(null);
+  }, [chartConfig]);
+
+  // No data state
+  if (!data || data.numRows === 0) {
+    return (
+      <div className={`${className}`}>
+        <div className="bg-background border border-gray-200 dark:border-gray-700 rounded-lg p-8">
+          <div className="text-center text-gray-500 dark:text-gray-400">
+            <div className="mb-4">
+              <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No Data to Visualize</h3>
+            <p>Run a SQL query to generate charts and visualizations</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <div className="space-y-6">
+        {/* Chart Controls */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div>
+              <h3 className="text-lg font-semibold">Data Visualization</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {data.numRows.toLocaleString()} rows × {availableColumns.length} columns
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfigModal(true)}
+                disabled={!data}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Configure
+              </Button>
+              
+              <ChartExportButton
+                plotRef={chartRef}
+                data={data}
+                config={chartConfig}
+                disabled={!isChartReady || !data}
+              />
+            </div>
+          </div>
+
+          {/* Quick Chart Type Buttons */}
+          <QuickChartButtons
+            onTypeChange={handleChartTypeChange}
+            availableColumns={availableColumns}
+            disabled={!data}
+          />
+
+          <Separator />
+
+          {/* Smart Suggestions */}
+          {chartSuggestions.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Suggested Charts:
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {chartSuggestions.slice(0, 4).map((suggestion, index) => (
+                  <Button
+                    key={`${suggestion.type}-${index}`}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyQuickSuggestion(suggestion)}
+                    className="text-xs"
+                  >
+                    {suggestion.title}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Error Display */}
+        {chartError && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" 
+                   fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <h4 className="text-sm font-semibold text-red-800 dark:text-red-200">
+                  Chart Error
+                </h4>
+                <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                  {chartError.message}
+                </p>
+                {chartError.type === 'INVALID_DATA' && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                    Try adjusting the column mapping or selecting a different chart type.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Performance Warnings */}
+        {performanceAnalysis && performanceAnalysis.recommendations.length > 0 && (
+          <div className="space-y-3">
+            {performanceAnalysis.recommendations
+              .filter(rec => rec.type === 'error')
+              .map((rec, index) => (
+                <div key={`error-${index}`} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" 
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-800 dark:text-red-200">Performance Issue</h4>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">{rec.message}</p>
+                      {rec.action && (
+                        <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                          <strong>Recommended action:</strong> {rec.action}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {performanceAnalysis.recommendations
+              .filter(rec => rec.type === 'warning')
+              .map((rec, index) => (
+                <div key={`warning-${index}`} className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" 
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200">Performance Warning</h4>
+                      <p className="text-sm text-amber-600 dark:text-amber-300 mt-1">{rec.message}</p>
+                      {rec.action && (
+                        <p className="text-xs text-amber-500 dark:text-amber-400 mt-2">
+                          <strong>Suggestion:</strong> {rec.action}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {performanceAnalysis.recommendations
+              .filter(rec => rec.type === 'recommendation')
+              .slice(0, 2) // Limit to avoid UI clutter
+              .map((rec, index) => (
+                <div key={`recommendation-${index}`} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" 
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200">Performance Tip</h4>
+                      <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">{rec.message}</p>
+                      {rec.action && (
+                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-2">
+                          <strong>Tip:</strong> {rec.action}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Chart Display */}
+        <PlotlyChart
+          ref={chartRef}
+          data={data}
+          config={chartConfig}
+          theme={theme}
+          onError={handleChartError}
+          onChartReady={handleChartReady}
+        />
+
+        {/* Chart Info */}
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>Chart:</strong> {chartConfig.type}
+              {chartConfig.xColumn && (
+                <>
+                  {' • '}
+                  <strong>X:</strong> {chartConfig.xColumn}
+                </>
+              )}
+              {chartConfig.yColumn && (
+                <>
+                  {' • '}
+                  <strong>Y:</strong> {chartConfig.yColumn}
+                </>
+              )}
+            </div>
+            {chartConfig.useWebGL && (
+              <span className="text-green-600 dark:text-green-400 text-xs">
+                WebGL Enabled
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Configuration Modal */}
+      <ChartConfigModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        config={chartConfig}
+        onConfigChange={handleConfigChange}
+        data={data}
+      />
+    </div>
+  );
+};
+
+export default Visualization;

@@ -49,13 +49,20 @@
     border-radius: 0.375rem;
   }
   
+  .stable-skeleton-visualization {
+    min-height: 564px; /* Same as results - chart controls + 500px chart height + margins */
+    background: rgb(229 231 235 / 0.6);
+    border-radius: 0.5rem;
+  }
+  
   /* Dark mode skeleton styles */
   .dark .stable-skeleton-editor,
   .dark .stable-skeleton-results,
   .dark .stable-skeleton-preview,
   .dark .stable-skeleton-uploader,
   .dark .stable-skeleton-sidebar,
-  .dark .stable-skeleton-export {
+  .dark .stable-skeleton-export,
+  .dark .stable-skeleton-visualization {
     background: rgb(31 41 55 / 0.6);
   }
   
