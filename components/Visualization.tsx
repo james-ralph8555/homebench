@@ -27,6 +27,12 @@ interface VisualizationProps {
   useWebGL?: boolean;
   initialTable?: string;
   chartRowLimit?: number;
+  persistedState?: {
+    selectedTable?: string;
+    chartConfig?: any;
+    chartType?: string;
+  };
+  onStateChange?: (state: any) => void;
 }
 
 export const Visualization: React.FC<VisualizationProps> = ({
@@ -36,20 +42,26 @@ export const Visualization: React.FC<VisualizationProps> = ({
   useWebGL = false,
   initialTable,
   chartRowLimit = 10000,
+  persistedState,
+  onStateChange,
 }) => {
-  const [chartConfig, setChartConfig] = useState<ChartConfig>({
-    type: 'scatter',
-    title: 'Query Results',
-    showLegend: true,
-    useWebGL: useWebGL,
-  });
+  const [chartConfig, setChartConfig] = useState<ChartConfig>(
+    persistedState?.chartConfig || {
+      type: 'scatter',
+      title: 'Query Results',
+      showLegend: true,
+      useWebGL: useWebGL,
+    }
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [chartError, setChartError] = useState<PlotlyTransformError | null>(null);
   const [isChartReady, setIsChartReady] = useState<boolean>(false);
   const [performanceAnalysis, setPerformanceAnalysis] = useState<ChartPerformanceAnalysis | null>(null);
   const chartRef = React.useRef<any>(null);
   const [tables, setTables] = useState<string[]>([]);
-  const [selectedTable, setSelectedTable] = useState<string | undefined>(initialTable);
+  const [selectedTable, setSelectedTable] = useState<string | undefined>(
+    persistedState?.selectedTable || initialTable
+  );
   const [tableData, setTableData] = useState<ArrowTable | null>(null);
 
   const chartData = tableData || data;
@@ -88,6 +100,17 @@ export const Visualization: React.FC<VisualizationProps> = ({
   React.useEffect(() => {
     setChartConfig(prev => ({ ...prev, useWebGL }));
   }, [useWebGL]);
+
+  // Persist state changes
+  React.useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        selectedTable,
+        chartConfig,
+        chartType: chartConfig.type
+      });
+    }
+  }, [selectedTable, chartConfig, onStateChange]);
 
   const availableColumns = useMemo(() => {
     return chartData ? chartData.schema.fields.map(field => field.name) : [];
@@ -249,23 +272,23 @@ export const Visualization: React.FC<VisualizationProps> = ({
           </div>
 
           {chartError && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-start space-x-3">
-                <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" 
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" 
                      fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                  <h4 className="text-sm font-semibold text-red-800 dark:text-red-200">
-                    Chart Error
+                  <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                    Select X and Y Columns
                   </h4>
-                  <p className="text-sm text-red-600 dark:text-red-300 mt-1">
-                    {chartError.message}
+                  <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                    Choose columns from the chart configuration panel to create your visualization.
                   </p>
                   {chartError.type === 'INVALID_DATA' && (
-                    <p className="text-xs text-red-500 dark:text-red-400 mt-2">
-                      Try adjusting the column mapping or selecting a different chart type.
+                    <p className="text-xs text-blue-500 dark:text-blue-400 mt-2">
+                      Try selecting different columns or chart type from the configuration sidebar.
                     </p>
                   )}
                 </div>

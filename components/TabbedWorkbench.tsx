@@ -97,7 +97,11 @@ export const TabbedWorkbench: React.FC = () => {
     const stored = localStorage.getItem('chartRowLimit');
     return stored ? parseInt(stored, 10) : 10000;
   });
-  const [resultsViewMode, setResultsViewMode] = useState<'grid' | 'chart'>('grid');
+  const [vizState, setVizState] = useState<{
+    selectedTable?: string;
+    chartConfig?: any;
+    chartType?: string;
+  }>({});
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
@@ -520,54 +524,11 @@ export const TabbedWorkbench: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-semibold">Query Results</h3>
-                    {results && results.numRows > 0 && (
-                      <div className="flex items-center space-x-1 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
-                        <button
-                          onClick={() => setResultsViewMode('grid')}
-                          className={`px-3 py-1 text-sm rounded ${
-                            resultsViewMode === 'grid'
-                              ? 'bg-blue-500 text-white'
-                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                          }`}
-                          title="Table view"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M3 10h18M3 6h18m-9 8h9m-9 4h9m-9-8H3m0 4h6" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setResultsViewMode('chart')}
-                          className={`px-3 py-1 text-sm rounded ${
-                            resultsViewMode === 'chart'
-                              ? 'bg-blue-500 text-white'
-                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                          }`}
-                          title="Chart view"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
                   </div>
                   
-                  {resultsViewMode === 'grid' ? (
-                    <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
-                      <ResultsGrid data={results!} theme={theme} />
-                    </Suspense>
-                  ) : (
-                    <Suspense fallback={<div className="animate-pulse stable-skeleton-visualization" />}>
-                      <Visualization 
-                        data={results} 
-                        theme={theme}
-                        useWebGL={useWebGL}
-                        chartRowLimit={chartRowLimit}
-                      />
-                    </Suspense>
-                  )}
+                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
+                    <ResultsGrid data={results!} theme={theme} />
+                  </Suspense>
                 </div>
               </div>
             </div>
@@ -579,8 +540,10 @@ export const TabbedWorkbench: React.FC = () => {
               <Visualization 
                 theme={theme}
                 useWebGL={useWebGL}
-                initialTable={previewTable || undefined}
+                initialTable={previewTable || vizState.selectedTable}
                 chartRowLimit={chartRowLimit}
+                persistedState={vizState}
+                onStateChange={setVizState}
               />
             </Suspense>
           </TabsContent>

@@ -23,20 +23,20 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tables, selectedTable, on
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="w-full justify-start text-left">
-            <span className={selectedTable ? 'text-foreground' : 'text-muted-foreground'}>
+            <span className={`truncate ${selectedTable ? 'text-foreground' : 'text-muted-foreground'}`} title={selectedTable}>
               {selectedTable || 'Select a table'}
             </span>
-            <svg className="ml-auto w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="ml-auto w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-full min-w-[200px]">
+        <DropdownMenuContent className="w-full min-w-[200px] max-w-[300px]">
           {tables.map((table) => (
-            <DropdownMenuItem key={table} onClick={() => onTableSelect(table)}>
-              {table}
+            <DropdownMenuItem key={table} onClick={() => onTableSelect(table)} className="flex items-center">
+              <span className="truncate" title={table}>{table}</span>
               {table === selectedTable && (
-                <svg className="ml-auto w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="ml-auto w-4 h-4 flex-shrink-0 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               )}
@@ -83,11 +83,11 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
 
   const getColumnTypeIcon = (columnType: string) => {
     switch (columnType) {
-      case 'numeric': return '🔢';
-      case 'string': return '📝';
-      case 'datetime': return '📅';
-      case 'boolean': return '✅';
-      default: return '❓';
+      case 'numeric': return '#';
+      case 'string': return 'T';
+      case 'datetime': return 'D';
+      case 'boolean': return 'B';
+      default: return '?';
     }
   };
 

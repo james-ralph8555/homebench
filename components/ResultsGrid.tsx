@@ -95,6 +95,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', 
       sortable: true,
       resizable: true,
       suppressMenu: false,
+      suppressMovable: true,
     },
     // Performance optimizations for large datasets
     ...(rowCount > 10000 ? {
