@@ -23,7 +23,7 @@ const DataPreview = dynamic(() => import('./DataPreview').then(mod => ({ default
   loading: () => <div className="animate-pulse stable-skeleton-preview" />
 });
 
-const SQLEditor = dynamic(() => import('./SQLEditor').then(mod => ({ default: mod.SQLEditor })), {
+const TabbedSQLEditor = dynamic(() => import('./TabbedSQLEditor').then(mod => ({ default: mod.TabbedSQLEditor })), {
   loading: () => <div className="animate-pulse stable-skeleton-editor" />
 });
 
@@ -413,7 +413,7 @@ export const TabbedWorkbench: React.FC = () => {
                     </div>
                   </div>
                   <Suspense fallback={<div className="animate-pulse stable-skeleton-editor" />}>
-                    <SQLEditor value={sql} onChange={setSql} />
+                    <TabbedSQLEditor value={sql} onChange={setSql} />
                   </Suspense>
                 </div>
 
