@@ -123,6 +123,8 @@ This repo uses Vitest with a `jsdom` environment to unit test browser-facing uti
 
 Performance optimizations and best practices are documented in `lib/README.md`.
 
+[![Lighthouse Performance](https://raw.githubusercontent.com/emazzotta/lighthouse-badges/master/assets/img/scores/lighthouse_performance.svg)](https://github.com/GoogleChrome/lighthouse)
+
 ## Browser Support & Limitations
 
 See `app/README.md` for supported browsers and current limitations.
