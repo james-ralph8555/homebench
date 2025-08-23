@@ -26,6 +26,7 @@ interface VisualizationProps {
   className?: string;
   useWebGL?: boolean;
   initialTable?: string;
+  chartRowLimit?: number;
 }
 
 export const Visualization: React.FC<VisualizationProps> = ({
@@ -34,6 +35,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
   className = '',
   useWebGL = false,
   initialTable,
+  chartRowLimit = 10000,
 }) => {
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     type: 'scatter',
@@ -71,7 +73,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
     if (selectedTable) {
       const fetchTableData = async () => {
         try {
-          const result = await executeReadQuery(`SELECT * FROM "${selectedTable}"`);
+          const result = await executeReadQuery(`SELECT * FROM "${selectedTable}" LIMIT ${chartRowLimit}`);
           setTableData(result as ArrowTable);
         } catch (error) {
           console.error(`Failed to fetch data for table ${selectedTable}:`, error);
@@ -81,7 +83,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
       };
       fetchTableData();
     }
-  }, [selectedTable]);
+  }, [selectedTable, chartRowLimit]);
 
   React.useEffect(() => {
     setChartConfig(prev => ({ ...prev, useWebGL }));
