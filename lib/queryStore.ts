@@ -10,6 +10,12 @@ export interface SavedQuery {
   tags?: string[];
 }
 
+export interface QueryHistory {
+  id?: number;
+  sql: string;
+  executedAt: Date;
+}
+
 export interface UserPreference {
   id?: number;
   key: string;
@@ -19,12 +25,19 @@ export interface UserPreference {
 
 class HomeBenchDatabase extends Dexie {
   public savedQueries!: Table<SavedQuery, number>;
+  public queryHistory!: Table<QueryHistory, number>;
   public preferences!: Table<UserPreference, number>;
 
   public constructor() {
     super('HomeBenchDB');
     this.version(1).stores({
       savedQueries: '++id, name, createdAt, updatedAt, *tags',
+      preferences: '++id, &key, updatedAt',
+    });
+    
+    this.version(2).stores({
+      savedQueries: '++id, name, createdAt, updatedAt, *tags',
+      queryHistory: '++id, executedAt, sql',
       preferences: '++id, &key, updatedAt',
     });
   }
@@ -100,6 +113,51 @@ export async function exportAllData() {
     preferences: await db.preferences.toArray(),
     exportedAt: new Date(),
   };
+}
+
+// Query history management functions
+export async function addQueryToHistory(sql: string): Promise<number> {
+  const trimmedSql = sql.trim();
+  if (!trimmedSql) return -1;
+  
+  // Don't add duplicate queries that were executed within the last minute
+  const oneMinuteAgo = new Date(Date.now() - 60000);
+  const recentDuplicate = await db.queryHistory
+    .where('sql').equals(trimmedSql)
+    .and(query => query.executedAt > oneMinuteAgo)
+    .first();
+    
+  if (recentDuplicate) return recentDuplicate.id!;
+  
+  return await db.queryHistory.add({
+    sql: trimmedSql,
+    executedAt: new Date(),
+  });
+}
+
+export async function getQueryHistory(limit: number = 50): Promise<QueryHistory[]> {
+  return await db.queryHistory
+    .orderBy('executedAt')
+    .reverse()
+    .limit(limit)
+    .toArray();
+}
+
+export async function searchQueryHistory(searchTerm: string, limit: number = 50): Promise<QueryHistory[]> {
+  const lowerSearchTerm = searchTerm.toLowerCase();
+  return await db.queryHistory
+    .filter(query => query.sql.toLowerCase().includes(lowerSearchTerm))
+    .reverse()
+    .limit(limit)
+    .toArray();
+}
+
+export async function clearQueryHistory(): Promise<void> {
+  await db.queryHistory.clear();
+}
+
+export async function removeQueryFromHistory(id: number): Promise<void> {
+  await db.queryHistory.delete(id);
 }
 
 export async function importData(data: { queries?: SavedQuery[], preferences?: UserPreference[] }) {

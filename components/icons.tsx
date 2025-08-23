@@ -145,3 +145,32 @@ export const InfoIcon: React.FC<IconProps> = ({ size = 16, className = '', ...pr
     <path d="M12 8h.01" />
   </svg>
 );
+
+export const SearchIcon: React.FC<IconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.35-4.35" />
+  </svg>
+);
+
+export const ClockIcon: React.FC<IconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12,6 12,12 16,14" />
+  </svg>
+);
+
+export const CopyIcon: React.FC<IconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+export const HistoryIcon: React.FC<IconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </svg>
+);

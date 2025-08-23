@@ -10,6 +10,7 @@ import { GearIcon, TriangleIcon, InfoIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
+import { addQueryToHistory } from '@/lib/queryStore';
 import { usePersistence } from '@/hooks/usePersistence';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
@@ -40,6 +41,10 @@ const SchemaExplorer = dynamic(() => import('./SchemaExplorer').then(mod => ({ d
 });
 
 const SavedQueries = dynamic(() => import('./SavedQueries').then(mod => ({ default: mod.SavedQueries })), {
+  loading: () => <div className="animate-pulse stable-skeleton-sidebar" />
+});
+
+const RecentQueries = dynamic(() => import('./RecentQueries').then(mod => ({ default: mod.RecentQueries })), {
   loading: () => <div className="animate-pulse stable-skeleton-sidebar" />
 });
 
@@ -176,6 +181,13 @@ export const TabbedWorkbench: React.FC = () => {
         setResults(result as ArrowTable);
         setQueryMetrics({ duration });
       }
+      
+      // Add successful query to history
+      try {
+        await addQueryToHistory(trimmedSql);
+      } catch (historyError) {
+        console.warn('Failed to add query to history:', historyError);
+      }
     } catch (e: any) {
       console.error('Query execution failed:', e);
       setError(e.message);
@@ -252,8 +264,8 @@ export const TabbedWorkbench: React.FC = () => {
                 <Image 
                   src="/logo.webp" 
                   alt="HomeBench logo" 
-                  width={32} 
-                  height={32} 
+                  width={64} 
+                  height={64} 
                   className="rounded aspect-logo" 
                   priority
                   placeholder="blur"
@@ -359,6 +371,13 @@ export const TabbedWorkbench: React.FC = () => {
                         onQuerySelect={setSql} 
                         currentQuery={sql} 
                         onSaveCallbackChange={handleSaveQueryCallbackChange}
+                      />
+                    </Suspense>
+                  </CollapsibleSidebar>
+                  <CollapsibleSidebar title="Recent Queries" defaultExpanded={false}>
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
+                      <RecentQueries 
+                        onQuerySelect={setSql} 
                       />
                     </Suspense>
                   </CollapsibleSidebar>
