@@ -5,6 +5,25 @@ module.exports = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
+    './contexts/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  // More aggressive purging for production
+  safelist: [
+    // Keep dynamic classes that might be applied via JS
+    'animate-spin',
+    'animate-pulse',
+    'bg-red-50',
+    'bg-blue-50',
+    'bg-green-600',
+    'text-red-600',
+    'text-blue-600',
+    'text-green-600',
+    'dark:bg-red-900/20',
+    'dark:bg-blue-900/20',
+    'dark:text-red-200',
+    'dark:text-blue-200',
+    'dark:text-green-400',
   ],
   theme: {
     container: {
@@ -15,6 +34,9 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

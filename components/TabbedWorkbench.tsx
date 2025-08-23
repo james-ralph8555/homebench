@@ -1,26 +1,52 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useDuckDB } from '@/contexts/DuckDBContext';
-import { FileUploader } from './FileUploader';
-import { DataPreview } from './DataPreview';
-import { SQLEditor } from './SQLEditor';
-import { ResultsGrid } from './ResultsGrid';
-import { ExportButton } from './ExportButton';
-import { SchemaExplorer } from './SchemaExplorer';
-import { SavedQueries } from './SavedQueries';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
 import { MemoryUsageBar } from './MemoryUsageBar';
-import { SettingsModal } from './SettingsModal';
 import { GearIcon, TriangleIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
 import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
-import { QueryOptimizer, PerformanceMonitor as PerfMonitorUtils } from '@/lib/performanceUtils';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
 import { usePersistence } from '@/hooks/usePersistence';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
+
+// Dynamic imports for heavy components - loaded only when needed
+const FileUploader = dynamic(() => import('./FileUploader').then(mod => ({ default: mod.FileUploader })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-32" />
+});
+
+const DataPreview = dynamic(() => import('./DataPreview').then(mod => ({ default: mod.DataPreview })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />
+});
+
+const SQLEditor = dynamic(() => import('./SQLEditor').then(mod => ({ default: mod.SQLEditor })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-40" />
+});
+
+const ResultsGrid = dynamic(() => import('./ResultsGrid').then(mod => ({ default: mod.ResultsGrid })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />
+});
+
+const ExportButton = dynamic(() => import('./ExportButton').then(mod => ({ default: mod.ExportButton })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded w-20 h-8" />
+});
+
+const SchemaExplorer = dynamic(() => import('./SchemaExplorer').then(mod => ({ default: mod.SchemaExplorer })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />
+});
+
+const SavedQueries = dynamic(() => import('./SavedQueries').then(mod => ({ default: mod.SavedQueries })), {
+  loading: () => <div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />
+});
+
+const SettingsModal = dynamic(() => import('./SettingsModal').then(mod => ({ default: mod.SettingsModal })), {
+  ssr: false,
+  loading: () => null
+});
 
 type TabType = 'upload' | 'query';
 
@@ -200,7 +226,14 @@ export const TabbedWorkbench: React.FC = () => {
             {/* Top row: logo + title on left, controls on right (stays a row on mobile) */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <Image src="/logo.png" alt="HomeBench logo" width={32} height={32} className="rounded" />
+                <Image 
+                  src="/logo.png" 
+                  alt="HomeBench logo" 
+                  width={32} 
+                  height={32} 
+                  className="rounded" 
+                  priority
+                />
                 <h1 className="text-2xl sm:text-3xl font-bold">HomeBench</h1>
               </div>
               <div className="flex items-center space-x-3">
@@ -234,21 +267,25 @@ export const TabbedWorkbench: React.FC = () => {
 
           {/* Tab Content */}
           <TabsContent value="upload">
-          <div className="space-y-6">
-            {/* Upload Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Upload Data</h3>
-              <FileUploader onFileUploaded={handleFileUploaded} />
-            </div>
+            <div className="space-y-6">
+              {/* Upload Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Upload Data</h3>
+                <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-32" />}>
+                  <FileUploader onFileUploaded={handleFileUploaded} />
+                </Suspense>
+              </div>
 
-            {/* Preview Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">
-                <DataPreview tableName={previewTable} />
+              {/* Preview Section */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">
+                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />}>
+                    <DataPreview tableName={previewTable} />
+                  </Suspense>
+                </div>
               </div>
             </div>
-          </div>
           </TabsContent>
 
           <TabsContent value="query">
@@ -269,19 +306,23 @@ export const TabbedWorkbench: React.FC = () => {
                   </div>
                   
                   <CollapsibleSidebar title="Schema" defaultExpanded={true}>
-                    <SchemaExplorer 
-                      onTableSelect={insertTableName}
-                      onColumnSelect={insertColumnName}
-                      refreshTrigger={schemaRefreshTrigger}
-                    />
+                    <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />}>
+                      <SchemaExplorer 
+                        onTableSelect={insertTableName}
+                        onColumnSelect={insertColumnName}
+                        refreshTrigger={schemaRefreshTrigger}
+                      />
+                    </Suspense>
                   </CollapsibleSidebar>
 
                   <CollapsibleSidebar title="Saved Queries" defaultExpanded={true}>
-                    <SavedQueries 
-                      onQuerySelect={setSql} 
-                      currentQuery={sql} 
-                      onSaveCallbackChange={handleSaveQueryCallbackChange}
-                    />
+                    <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-48" />}>
+                      <SavedQueries 
+                        onQuerySelect={setSql} 
+                        currentQuery={sql} 
+                        onSaveCallbackChange={handleSaveQueryCallbackChange}
+                      />
+                    </Suspense>
                   </CollapsibleSidebar>
 
                 </div>
@@ -358,14 +399,18 @@ export const TabbedWorkbench: React.FC = () => {
                             'Run Query'
                           )}
                         </Button>
-                        <ExportButton 
-                          query={sql} 
-                          disabled={!results || isQuerying}
-                        />
+                        <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded w-20 h-8" />}>
+                          <ExportButton 
+                            query={sql} 
+                            disabled={!results || isQuerying}
+                          />
+                        </Suspense>
                       </div>
                     </div>
                   </div>
-                  <SQLEditor value={sql} onChange={setSql} />
+                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-40" />}>
+                    <SQLEditor value={sql} onChange={setSql} />
+                  </Suspense>
                 </div>
 
                 {/* Performance Hints */}
@@ -413,7 +458,9 @@ export const TabbedWorkbench: React.FC = () => {
                 {/* Results Grid */}
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Query Results</h3>
-                  <ResultsGrid data={results!} theme={theme} />
+                  <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded h-64" />}>
+                    <ResultsGrid data={results!} theme={theme} />
+                  </Suspense>
                 </div>
               </div>
             </div>
@@ -423,14 +470,18 @@ export const TabbedWorkbench: React.FC = () => {
       </div>
 
       {/* Settings Modal */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        theme={theme}
-        onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-        showMemoryBar={showMemoryBar}
-        onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
-      />
+      {showSettings && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            theme={theme}
+            onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            showMemoryBar={showMemoryBar}
+            onMemoryBarToggle={() => setShowMemoryBar(prev => !prev)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

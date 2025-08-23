@@ -1,6 +1,15 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import { DuckDBProvider } from '@/contexts/DuckDBContext'
+import './critical.css'
 import './globals.css'
+
+// Configure font with next/font for optimal loading
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter'
+})
 
 export const metadata: Metadata = {
   title: 'HomeBench',
@@ -14,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body>
+      <body className={inter.className}>
         <DuckDBProvider>
           {children}
         </DuckDBProvider>
