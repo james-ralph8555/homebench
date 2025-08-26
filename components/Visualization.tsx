@@ -63,6 +63,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
     persistedState?.selectedTable || initialTable
   );
   const [tableData, setTableData] = useState<ArrowTable | null>(null);
+  const [isDataLimited, setIsDataLimited] = useState<boolean>(false);
 
   const chartData = tableData || data;
 
@@ -85,12 +86,18 @@ export const Visualization: React.FC<VisualizationProps> = ({
     if (selectedTable) {
       const fetchTableData = async () => {
         try {
+          // First get the total count to check if data is limited
+          const countResult = await executeReadQuery(`SELECT COUNT(*) as total_count FROM "${selectedTable}"`);
+          const totalRows = countResult.get(0)?.total_count || 0;
+          
           const result = await executeReadQuery(`SELECT * FROM "${selectedTable}" LIMIT ${chartRowLimit}`);
           setTableData(result as ArrowTable);
+          setIsDataLimited(totalRows > chartRowLimit);
         } catch (error) {
           console.error(`Failed to fetch data for table ${selectedTable}:`, error);
           setChartError(new PlotlyTransformError(`Failed to load data for table: ${selectedTable}`, 'INVALID_DATA'));
           setTableData(null);
+          setIsDataLimited(false);
         }
       };
       fetchTableData();
@@ -227,7 +234,10 @@ export const Visualization: React.FC<VisualizationProps> = ({
               <div>
                 <h3 className="text-lg font-semibold">Data Visualization</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {chartData.numRows.toLocaleString()} rows × {availableColumns.length} columns
+                  {isDataLimited ? 
+                    `First ${chartData.numRows.toLocaleString()} rows × ${availableColumns.length} columns` :
+                    `${chartData.numRows.toLocaleString()} rows × ${availableColumns.length} columns`
+                  }
                 </p>
               </div>
               

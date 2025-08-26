@@ -88,9 +88,9 @@ export const TabbedWorkbench: React.FC = () => {
     return stored === 'true';
   });
   const [useWebGL, setUseWebGL] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+    if (typeof window === 'undefined') return true;
     const stored = localStorage.getItem('useWebGL');
-    return stored === 'true';
+    return stored === 'false' ? false : true; // Default to true, only false if explicitly set
   });
   const [chartRowLimit, setChartRowLimit] = useState<number>(() => {
     if (typeof window === 'undefined') return 10000;
@@ -300,9 +300,9 @@ export const TabbedWorkbench: React.FC = () => {
                   size={14} 
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors" 
                 />
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                  HomeBench processes all your data locally in your browser. Nothing is ever sent to our servers.
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  HomeBench processes all your data locally in your browser.<br />Nothing is ever sent to our servers.
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
                 </div>
               </div>
             </div>
