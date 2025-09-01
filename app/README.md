@@ -1,4 +1,6 @@
-# App Architecture
+# App Architecture (v0.0.1 — pre‑alpha)
+
+> Warning: This is an early pre‑alpha build. Expect breaking changes, instability, and potential data loss. Do not rely on this version for critical work.
 
 HomeBench is a client-only Next.js application (App Router) that runs DuckDB entirely in the browser (WebAssembly + Web Worker). All data and state remain on-device.
 

@@ -1,4 +1,4 @@
-# HomeBench
+# HomeBench · v0.0.1 (pre‑alpha)
 
 <table>
   <tr>
@@ -12,6 +12,8 @@
     </td>
   </tr>
   </table>
+
+> Pre‑alpha notice: Expect breaking changes, instability, and potential data loss. OPFS persistence may fail on some browsers; do not rely on this version for critical data.
 
 ## [Try It Online](https://homebench.casa)
 
@@ -36,6 +38,42 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - Rich results viewer: Virtualized grid for smooth scrolling, quick inspection, and export to CSV/Parquet/JSON.
 - Visualization: Generate charts from your query results using Plotly.js.
 - Zero setup: Works as a static site; just open and start querying.
+
+## Roadmap (P06 — HomeBench)
+
+Status legend: [Done], [Partial], [Planned]
+
+### Quick Wins
+- Import pipeline UX: drag‑drop → schema preview → COPY with type overrides; progress + cancel: [Partial]
+  - Implemented: drag‑drop upload and post‑import schema preview; progress messaging.
+  - Missing: pre‑copy schema preview, type overrides, cancel during ingest.
+- “Saving…” indicator wired to a write queue; toast on durable commit: [Planned]
+  - UI has an isSaving indicator, but it is not yet wired to durable writes; no commit toast.
+- Virtualized data grid for previews (>50k rows feel instant); sticky headers + column filters: [Done]
+  - Results grid uses AG Grid with virtualization and column filters; preview table uses sticky headers (first 100 rows).
+
+### Reliability (big one)
+- Single‑writer across tabs: leader election + `navigator.locks`; readers unblocked: [Done]
+  - Multi‑tab system implements leader election, heartbeats, and serialized writes; reads are concurrent.
+- Durable write log in OPFS with tx replay (“Recovered 1 pending write”): [Planned]
+  - No write‑ahead log or replay on startup yet.
+
+### Power Features
+- EXPLAIN/EXPLAIN ANALYZE pane with operator flame graph: [Planned]
+- Snippets & notebook cells with markdown; export `.duckdb` + `.homebench` bundle: [Planned]
+- UDFs (JS/WASM) for lightweight transforms; per‑session sandbox: [Planned]
+- Data connectors: http(s) CSV/Parquet via httpfs + OPFS caching toggle (“pin file locally”): [Planned]
+- Shareable read‑only workspace: export zip with OPFS files + `workspace.json`: [Planned]
+
+### Performance
+- Lazy‑load DuckDB bundle only when first editor mounts: [Planned]
+  - Current: DB initializes in the root layout provider.
+- Move heavy work to a dedicated Worker; stream results with back‑pressure: [Partial]
+  - DuckDB runs in a Web Worker; multi‑tab streaming (Arrow/JSON) exists; UI paths still use non‑streaming reads by default.
+- Pre‑warm OPFS + WASM on idle (`requestIdleCallback`) to hide first‑query costs: [Planned]
+
+### Success Metrics
+- Track time‑to‑first‑query, failed‑write rate, and % sessions with successful import→query→export: [Planned]
 
 ## Planned Features
 
@@ -79,6 +117,11 @@ npm start
 - Components map and UI overview: `components/README.md`
 - Engine and storage internals: `lib/README.md`
 - Multi‑tab roles, transport, and streaming: `lib/multitab/README.md`
+
+For implementation details and current limitations by area, see:
+- Multi‑tab + durability: `lib/multitab/*`, `lib/durableOperations.ts`, `lib/opfsUtils.ts`
+- Import pipeline: `components/FileUploader.tsx`, `components/DataPreview.tsx`
+- Results grid: `components/ResultsGrid.tsx`
 
 Mermaid diagrams and deep-dive technical content have been moved into these sub READMEs for clarity.
 
