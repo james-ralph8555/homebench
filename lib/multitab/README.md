@@ -17,7 +17,7 @@ Single‑leader multi‑tab coordination for DuckDB‑WASM. The leader tab owns 
 
 - Formats: Arrow IPC (preferred) or JSON batches.
 - Chunking: Arrow buffers chunked up to `maxChunkSize` (2MB default). JSON paginated with `LIMIT/OFFSET` (`defaultChunkRows` = 20k).
-- Writes: Serialized via `writeMutex` on the leader. UI writes should use `durableOperations.executeDurableWrite` which wraps `BEGIN/COMMIT + CHECKPOINT` and retries transient lock errors.
+- Writes: Serialized via `writeMutex` on the leader. UI writes should use `durableOperations.executeDurableWrite` which performs connection health checks, attempts recovery for write‑mode corruption, `CHECKPOINT`s after writes, and retries transient lock errors.
 - Cancellation: Implemented for the MessagePort pathway; the broadcast simulation does not support server‑side cancellation for in‑flight requests.
 
 ```mermaid

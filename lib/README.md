@@ -5,7 +5,7 @@ Core browser engine, persistence, and utilities for HomeBench. These modules int
 ## Module Map
 
 - `duckdbManager.ts`: Boots multi‑tab, initializes DuckDB‑WASM (worker + bundle selection), opens OPFS DB, exposes unified query/streaming APIs, lifecycle helpers, and status.
-- `durableOperations.ts`: Multi‑tab aware read/write helpers with UI callbacks; wraps writes in `BEGIN`/`COMMIT` + `CHECKPOINT`, retries transient lock errors, emits recovery notices.
+- `durableOperations.ts`: Multi‑tab aware read/write helpers with UI callbacks; performs pre‑write connection health checks, attempts automatic recovery for write‑mode corruption, `CHECKPOINT`s after writes, retries transient lock errors, and emits recovery notices.
 - `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS) and constants (`DB_FILE_NAME`, `DB_VFS_PATH`).
 - `persistence.ts`: Session save/load/exists/delete helpers (checkpoint + flush semantics).
 - `exportUtils.ts`: Export SELECT results to CSV/Parquet/JSON via `COPY (...) TO`; download full `.duckdb` snapshot via `VACUUM INTO`.
@@ -92,9 +92,11 @@ sequenceDiagram
 
   UI->>Ops: executeDurableWrite(sql, [], {description})
   Note over UI: Shows saving indicator
-  Ops->>DB: BEGIN TRANSACTION
+  Ops->>Ops: validate connection health
+  alt write-mode corrupted
+    Ops->>Ops: attempt connection recovery
+  end
   Ops->>DB: query(sql)
-  Ops->>DB: COMMIT
   Ops->>DB: CHECKPOINT
   DB-->>OPFS: persist changes (with native WAL)
   Ops-->>UI: success/error + hide saving indicator
@@ -148,10 +150,12 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
   - `registerWriteCallbacks({ onSavingChange, onRecoveryNotification })`: Wire UI spinners/toasts.
   - `executeReadQuery(sql, params?)`: Runs read via multi‑tab path, returns Arrow Table.
   - `executeStreamingReadQuery(sql, params?, { format='arrow', chunkRows?, onArrowChunk?, onJsonChunk? })`: Streams results.
-  - `executeDurableWrite(sql, params?, { description?, retryAttempts? })`: Transaction + checkpoint + retries.
+  - `executeDurableWrite(sql, params?, { description?, retryAttempts? })`: Health check + recovery + checkpoint + retries.
   - `createTableFromFile(name, fileName, ext)`: Auto schema.
   - `createTableFromFileWithSchema(name, fileName, ext, columns, overrides)`: `TRY_CAST` per override, warns on NULL casts.
   - `checkDatabaseRecovery()`: Notifies if an OPFS session was restored.
+  - `checkConnectionHealth()`: Returns `{ canRead, canWrite, error? }`.
+  - `forceConnectionRecovery(description?)`: Tries recovery of write‑mode corruption.
 
 - `duckdbManager`
   - `DuckDBManager.getInstance()`: Singleton orchestrator.

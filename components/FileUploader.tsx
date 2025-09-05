@@ -123,12 +123,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
       let errorMsg = `Error loading ${file.name}: ${e.message}`;
       
       // Provide helpful error messages for common issues
-      if (e.message.includes('TransactionContext')) {
-        errorMsg = `Database transaction error with ${file.name}. Try refreshing the page and uploading again.`;
+      if (e.message.includes('TransactionContext') || e.message.includes('File is not opened in write mode')) {
+        errorMsg = `Database write capability corrupted with ${file.name}. This usually happens after interrupted uploads. The system attempted automatic recovery. If the issue persists, refresh the page or clear OPFS data and try again.`;
       } else if (e.message.includes('maximum_object_size')) {
         errorMsg = `File ${file.name} is too large for DuckDB to process. Try a smaller file or convert to Parquet format.`;
-      } else if (e.message.includes('File is not opened in write mode')) {
-        errorMsg = `Database connection error. Please refresh the page and try uploading ${file.name} again.`;
       }
       
       setMessage(errorMsg);

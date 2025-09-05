@@ -57,7 +57,7 @@ Status legend: [Done], [Partial], [Planned]
   - Upload is leader‑only in multi‑tab mode; UI enforces this and provides guidance.
   - Guards include a 4GB file size check (WASM limit) and sanitized table names.
 - **Implemented**: Durable table creation and safe fallbacks
-  - `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*` wrapped in a transaction + `CHECKPOINT` with retries.
+- `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*` with connection health validation, automatic recovery for write‑mode corruption, and a `CHECKPOINT` to persist changes; retries handle transient locks.
   - Custom type overrides are applied via generated `SELECT` with per‑column casts; if casting fails, importer falls back to auto‑detected types.
   - Post‑import cast warnings are surfaced by checking per‑column NULL counts for overridden columns.
   - File→table provenance recorded in IndexedDB (`tableMetadataStore`).
@@ -69,8 +69,8 @@ Status legend: [Done], [Partial], [Planned]
 
 #### Persistent "Saving" Indicator & Write Durability: [Done] 
 - **Current**: Real-time saving indicator connected to all write operations with automatic retry logic
-- **Implemented**: Visual feedback during writes, recovery notifications on startup, leverages DuckDB's native WAL for crash recovery
-- **Impact**: Users see real-time write feedback and are notified when sessions are recovered after crashes
+- **Implemented**: Pre‑write connection health checks, automatic recovery attempts for write‑mode corruption, `CHECKPOINT` after writes, and recovery notifications on startup. Leverages DuckDB's native WAL for crash recovery.
+- **Impact**: Clearer errors and fewer dead‑ends; users see real-time write feedback and are notified when sessions are recovered after crashes
 
 #### Excel Import/Export Support: [Planned]
 - **Current**: CSV, Parquet, JSON support
@@ -222,6 +222,10 @@ npm start
 - JSON files >16MB may exceed DuckDB's `maximum_object_size` limit
 
 For detailed technical specifications, see the individual component and library documentation.
+
+## Troubleshooting
+
+- Database write capability corrupted: If you see an error like “Database write capability corrupted…”, first refresh the page and retry. If it persists, open Settings → Storage and use “Clear OPFS data”, then reload the app and re‑import your files. This clears the local database files stored in your browser.
 
 ## Development
 

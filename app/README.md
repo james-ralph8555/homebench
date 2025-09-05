@@ -110,7 +110,7 @@ See `lib/multitab/README.md` for details.
 ## Persistence & Recovery
 
 - Database file: OPFS path `opfs://homebench.db` (created by `lib/duckdbManager.initializeDatabase`).
-- Durability: All writes are wrapped in `BEGIN/COMMIT` + `CHECKPOINT` with retry/backoff, then periodically flushed (`flushFiles`) on interval and visibility changes.
+- Durability: Writes validate connection health, attempt automatic recovery for write‑mode corruption when detected, execute the write, and `CHECKPOINT` afterward. Retries/backoff handle transient locks; periodic flush (`flushFiles`) on interval and visibility changes.
 - UI feedback: `lib/durableOperations.registerWriteCallbacks` drives a global “saving” indicator and recovery toasts.
 - Recovery: On startup, `checkDatabaseRecovery()` infers restored sessions and notifies the user (e.g., “Session restored with N tables”).
 - Session utilities: `hooks/usePersistence` exposes `loadSession`, `checkSessionExists`, `deleteSession`, and size formatting.
