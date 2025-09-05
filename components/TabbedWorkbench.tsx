@@ -33,6 +33,10 @@ const ResultsGrid = dynamic(() => import('./ResultsGrid').then(mod => ({ default
   loading: () => <div className="animate-pulse stable-skeleton-results" />
 });
 
+const ExplainPanel = dynamic(() => import('./ExplainPanel').then(mod => ({ default: mod.ExplainPanel })), {
+  loading: () => <div className="animate-pulse stable-skeleton-results" />
+});
+
 const ExportButton = dynamic(() => import('./ExportButton').then(mod => ({ default: mod.ExportButton })), {
   loading: () => <div className="animate-pulse stable-skeleton-export" />
 });
@@ -104,6 +108,10 @@ export const TabbedWorkbench: React.FC = () => {
     chartConfig?: any;
     chartType?: string;
   }>({});
+
+  // Explain state
+  const [showExplain, setShowExplain] = useState(false);
+  const [explainAnalyze, setExplainAnalyze] = useState(false);
 
   // Stable handlers to receive child-provided callbacks without causing effect loops
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
@@ -188,6 +196,8 @@ export const TabbedWorkbench: React.FC = () => {
         const duration = performance.now() - startTime;
         setResults(result as ArrowTable);
         setQueryMetrics({ duration });
+        // Hide explain if we just ran the actual query
+        setShowExplain(false);
       }
       
       // Add successful query to history
@@ -203,6 +213,11 @@ export const TabbedWorkbench: React.FC = () => {
       setIsQuerying(false);
     }
   };
+
+  const handleExplain = useCallback((analyze: boolean) => {
+    setExplainAnalyze(analyze);
+    setShowExplain(true);
+  }, []);
 
   const handleFileUploaded = useCallback((fileName: string) => {
     setLoadedTables(prev => [...prev.filter(name => name !== fileName), fileName]);
@@ -457,7 +472,7 @@ export const TabbedWorkbench: React.FC = () => {
                           <span className="text-green-600 dark:text-green-400">All changes saved</span>
                         )}
                       </div>
-                    <div className="flex space-x-2">
+                      <div className="flex space-x-2">
                         <Button onClick={() => saveQueryCallback?.()} variant="secondary">
                           Save Current
                         </Button>
@@ -472,6 +487,12 @@ export const TabbedWorkbench: React.FC = () => {
                           ) : (
                             'Run Query'
                           )}
+                        </Button>
+                        <Button onClick={() => handleExplain(false)} variant="outline" disabled={!sql.trim()} title="EXPLAIN">
+                          Explain
+                        </Button>
+                        <Button onClick={() => handleExplain(true)} variant="outline" disabled={!sql.trim()} title="EXPLAIN ANALYZE">
+                          Analyze
                         </Button>
                         <Suspense fallback={<div className="animate-pulse stable-skeleton-export" />}>
                           <ExportButton 
@@ -489,9 +510,15 @@ export const TabbedWorkbench: React.FC = () => {
 
                 {/* Results directly follow editor to fuse them */}
                 <div>
-                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
-                    <ResultsGrid data={results!} theme={theme} />
-                  </Suspense>
+                  {!showExplain ? (
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
+                      <ResultsGrid data={results!} theme={theme} />
+                    </Suspense>
+                  ) : (
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
+                      <ExplainPanel sql={sql} analyze={explainAnalyze} theme={theme} onClose={() => setShowExplain(false)} />
+                    </Suspense>
+                  )}
                   {/* Subtle inline metrics below results */}
                   {queryMetrics && (
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">

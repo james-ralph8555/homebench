@@ -95,7 +95,7 @@ Status legend: [Done], [Partial], [Planned]
   - Recovery notifications inform users when previous sessions are restored.
 
 ### Power Features
-- EXPLAIN/EXPLAIN ANALYZE pane with operator flame graph: [Planned]
+- EXPLAIN/EXPLAIN ANALYZE pane with operator flame graph: [Done]
 - Snippets & notebook cells with markdown; export `.duckdb` + `.homebench` bundle: [Planned]
 - UDFs (JS/WASM) for lightweight transforms; per‑session sandbox: [Planned]
 - Data connectors: http(s) CSV/Parquet via httpfs + OPFS caching toggle (“pin file locally”): [Planned]

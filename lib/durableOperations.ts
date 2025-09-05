@@ -423,6 +423,44 @@ export const executeReadQuery = async (
 };
 
 /**
+ * Executes multiple read queries sequentially on the same connection when possible.
+ * - Leader: uses a single direct DuckDB connection for all statements.
+ * - Client: sends sequential requests over the dedicated MessagePort (same connection on leader).
+ * Returns an array of results in the same order as the queries.
+ */
+export const executeReadQuerySequence = async (
+  queries: string[]
+): Promise<any[]> => {
+  const manager = DuckDBManager.getInstance();
+  const { getMultiTabState } = await import('./multitab/boot');
+  const state = getMultiTabState();
+
+  if (state.isLeader) {
+    // Run all queries on a single connection
+    const db = await manager.getDatabase();
+    const conn = await db.connect();
+    try {
+      const results: any[] = [];
+      for (const sql of queries) {
+        const res = await conn.query(sql);
+        results.push(res);
+      }
+      return results;
+    } finally {
+      await conn.close();
+    }
+  }
+
+  // Client path: send sequentially over the same dedicated port/connection
+  const results: any[] = [];
+  for (const sql of queries) {
+    const res = await manager.executeQuery(sql, [], 'ro');
+    results.push(res);
+  }
+  return results;
+};
+
+/**
  * Executes a streaming read query with chunked results
  */
 export const executeStreamingReadQuery = async (
