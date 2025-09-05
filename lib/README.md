@@ -6,6 +6,7 @@ Core browser engine, persistence, and utilities for HomeBench. These modules int
 
 - `duckdbManager.ts`: Boots multi‑tab, initializes DuckDB‑WASM (worker + bundle selection), opens OPFS DB, exposes unified query/streaming APIs, lifecycle helpers, and status.
 - `durableOperations.ts`: Multi‑tab aware read/write helpers with UI callbacks; performs pre‑write connection health checks, attempts automatic recovery for write‑mode corruption, `CHECKPOINT`s after writes, retries transient lock errors, and emits recovery notices.
+- `explain.ts`: Helpers to run EXPLAIN/EXPLAIN ANALYZE, extract plan text, and parse JSON output when available.
 - `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS) and constants (`DB_FILE_NAME`, `DB_VFS_PATH`).
 - `persistence.ts`: Session save/load/exists/delete helpers (checkpoint + flush semantics).
 - `exportUtils.ts`: Export SELECT results to CSV/Parquet/JSON via `COPY (...) TO`; download full `.duckdb` snapshot via `VACUUM INTO`.
@@ -133,7 +134,7 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 - Session persistence: Implemented. Full DB saved/loaded via OPFS.
 - Zero‑copy ingestion: Not implemented. Uploads are copied into DuckDB tables via `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*('file')`.
 - Automatic session save: Implemented. Writes trigger CHECKPOINT + flush; periodic/background flush on hide/unload.
-- Write durability & reliability: Implemented. All writes use transactions with retry logic; real-time UI feedback; automatic crash recovery via DuckDB's native WAL.
+- Write durability & reliability: Implemented. Writes perform health checks, avoid explicit transactions (to sidestep write‑mode issues), `CHECKPOINT` after changes, and use retry/backoff with automatic recovery; real-time UI feedback; crash recovery via DuckDB's native WAL.
 - Recovery notifications: Implemented. Users are notified when sessions are restored after browser crashes.
 
 ## Performance Features
@@ -155,7 +156,10 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
   - `createTableFromFileWithSchema(name, fileName, ext, columns, overrides)`: `TRY_CAST` per override, warns on NULL casts.
   - `checkDatabaseRecovery()`: Notifies if an OPFS session was restored.
   - `checkConnectionHealth()`: Returns `{ canRead, canWrite, error? }`.
-  - `forceConnectionRecovery(description?)`: Tries recovery of write‑mode corruption.
+  - `performConnectionDiagnostics()`: Returns connection health details and environment diagnostics.
+
+- `explain`
+  - `getExplain(sql, analyze: boolean)`: Returns `{ text, root? }` where `text` is plan text and `root` is a parsed plan tree when JSON explain is available.
 
 - `duckdbManager`
   - `DuckDBManager.getInstance()`: Singleton orchestrator.

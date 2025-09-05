@@ -23,6 +23,7 @@ export interface UserPreference {
   updatedAt: Date;
 }
 
+
 class HomeBenchDatabase extends Dexie {
   public savedQueries!: Table<SavedQuery, number>;
   public queryHistory!: Table<QueryHistory, number>;
@@ -40,6 +41,7 @@ class HomeBenchDatabase extends Dexie {
       queryHistory: '++id, executedAt, sql',
       preferences: '++id, &key, updatedAt',
     });
+    
   }
 }
 
@@ -171,3 +173,4 @@ export async function importData(data: { queries?: SavedQuery[], preferences?: U
     await db.preferences.bulkAdd(data.preferences.map(p => ({ ...p, id: undefined })));
   }
 }
+

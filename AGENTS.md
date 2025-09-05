@@ -5,7 +5,7 @@
 - `components/`: Reusable React components (PascalCase filenames). Keep UI-only components pure; prefer server components by default and add `"use client"` only when required.
 - `contexts/`: React context providers and hooks for shared state.
 - `lib/`: Utilities, DuckDB/OPFS helpers, and shared logic.
-- `.docs_for_ai/` and `ARCH.md`: Reference docs for architecture and agent helpers.
+- `.docs_for_ai/`: Reference docs for architecture and agent helpers.
 
 ## Build, Test, and Development Commands
 - `npm run dev`: Start the local dev server at `http://localhost:3000`.
@@ -39,7 +39,7 @@
 
 ## Commit & Pull Request Guidelines
 - **Commits**: Follow Conventional Commits (e.g., `feat:`, `fix:`, `docs:`, `build:`, `chore:`). Recent history uses `chore`, `build`, `docs`.
-- **PRs**: Provide a clear description, linked issues, before/after screenshots for UI, and test plan. Ensure `npm run lint` and `npm run typecheck` pass. Update `README.md`/`ARCH.md` when behavior or architecture changes.
+- **PRs**: Provide a clear description, linked issues, before/after screenshots for UI, and test plan. Ensure `npm run lint` and `npm run typecheck` pass. Update `README.md` when behavior or architecture changes.
 
 ## Security & Configuration Tips
 - This is a client-side, privacy-first app; never commit secrets or large datasets.

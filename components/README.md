@@ -13,8 +13,9 @@ graph TD
     TabbedWorkbench --> DataPreview
     TabbedWorkbench --> TabbedSQLEditor
     TabbedSQLEditor --> SQLEditor
-    TabbedWorkbench --> ResultsGrid
-    TabbedWorkbench --> Visualization
+  TabbedWorkbench --> ResultsGrid
+  TabbedWorkbench --> ExplainPanel
+  TabbedWorkbench --> Visualization
     TabbedWorkbench --> ExportButton
     TabbedWorkbench --> CollapsibleSidebar
     CollapsibleSidebar --> SchemaExplorer
@@ -39,6 +40,7 @@ graph TD
 - `TabbedWorkbench`: Main UI orchestrator for upload → query → results; lazy-loads heavy children.
 - `SQLEditor`: CodeMirror-based SQL editor with schema-aware autocomplete, debounced input, and one-dark theme.
 - `ResultsGrid`: AG Grid with virtualization; imports its own theme CSS.
+- `ExplainPanel`: Runs EXPLAIN/EXPLAIN ANALYZE for the current query and renders plan text with loading/error states. Parses JSON explain internally for future visualizations.
 - `Visualization`: The main component that renders the chart. It receives the query results and chart configuration.
 - `PlotlyChart`: A wrapper around the Plotly.js library that handles chart rendering and updates.
 - `ChartConfigSidebar`: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
@@ -82,6 +84,7 @@ Reusable, focused building blocks located in `components/ui/`:
 - Client boundaries: Add `"use client"` only where interactivity is required; many primitives are server‑compatible.
 - Memoize: Use `useMemo`/`useCallback` for expensive transforms (e.g., Arrow → rows, column defs) and to stabilize props.
 - Grid sizing: Prefer virtualization and conservative defaults for very large result sets.
+- Results grid batching: Converts Arrow rows incrementally in ~2k batches and caps display to 100k rows to keep the UI responsive on very large results.
 
 ## Conventions
 

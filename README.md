@@ -29,6 +29,11 @@
 
 New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 
+### Explain / Analyze
+- Use the `Explain` button to run `EXPLAIN <your query>` and inspect the textual execution plan.
+- Use the `Analyze` button to run `EXPLAIN ANALYZE <your query>` and see profiled timings. The app also attempts to parse DuckDB's JSON explain output when available.
+  - Visual flame graphs are not included; profiling is presented as textual plans (with optional JSON parsing when available).
+
 ## Core Features (Implemented)
 
 - **Privacy by design**: All data stays on your device; nothing is sent to a server
@@ -95,7 +100,7 @@ Status legend: [Done], [Partial], [Planned]
   - Recovery notifications inform users when previous sessions are restored.
 
 ### Power Features
-- EXPLAIN/EXPLAIN ANALYZE pane with operator flame graph: [Done]
+- EXPLAIN/EXPLAIN ANALYZE pane (plan text + JSON profile): [Done]
 - Snippets & notebook cells with markdown; export `.duckdb` + `.homebench` bundle: [Planned]
 - UDFs (JS/WASM) for lightweight transforms; per‑session sandbox: [Planned]
 - Data connectors: http(s) CSV/Parquet via httpfs + OPFS caching toggle (“pin file locally”): [Planned]
@@ -108,6 +113,7 @@ Status legend: [Done], [Partial], [Planned]
   - DuckDB runs in Web Worker; multi-tab streaming (Arrow/JSON) exists; UI still uses non-streaming reads by default
 - **Smart resource management**: Pre-warm OPFS + WASM on idle to hide first-query costs: [Planned]
 - **Memory optimization**: Real-time memory usage monitoring with automatic cleanup: [Done]
+- **Results grid batching**: Incremental row building in the grid (2k batches, capped to 100k displayed rows) to keep UI responsive: [Done]
 
 ### Success Metrics
 - Track time‑to‑first‑query, failed‑write rate, and % sessions with successful import→query→export: [Planned]
@@ -124,7 +130,7 @@ Status legend: [Done], [Partial], [Planned]
 
 ### Query & Analysis Features  
 - **Advanced SQL editor**: Full DuckDB syntax support with autocomplete and validation
-- **Query performance analysis**: EXPLAIN/EXPLAIN ANALYZE with operator flame graphs
+- **Query performance analysis**: EXPLAIN/EXPLAIN ANALYZE with plan text and JSON profile parsing
 - **Saved queries & snippets**: Query library with categorization and search
 - **Notebook-style cells**: Markdown cells mixed with SQL for documentation
 - **Custom functions**: User-defined functions (UDFs) in JavaScript/WASM
