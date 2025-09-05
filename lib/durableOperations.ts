@@ -191,6 +191,99 @@ export const createTableFromFile = async (
 };
 
 /**
+ * Creates a table from a file with custom column types and graceful error handling
+ */
+export const createTableFromFileWithSchema = async (
+  tableName: string,
+  fileName: string,
+  fileExtension: string,
+  columns: Array<{ column_name: string; column_type: string; null?: string; key?: string; default?: string; extra?: string }>,
+  typeOverrides: { columnName: string; newType: string }[] = []
+): Promise<WriteResult & { castWarnings?: string[] }> => {
+  // Import schema generation functions
+  const { generateRobustCustomTableSQL } = await import('./schemaDetection');
+  
+  try {
+    // Convert basic column info to ColumnInfo format
+    const columnInfos = columns.map(col => ({
+      column_name: col.column_name,
+      column_type: col.column_type,
+      null: col.null || 'YES',
+      key: col.key || '',
+      default: col.default || '',
+      extra: col.extra || ''
+    }));
+    
+    const query = generateRobustCustomTableSQL(
+      tableName,
+      fileName,
+      fileExtension,
+      columnInfos,
+      typeOverrides
+    );
+    
+    const result = await executeDurableWrite(query, [], {
+      description: `Loading ${fileName} into table "${tableName}" with custom schema`,
+      retryAttempts: 3
+    });
+    
+    // If successful with custom types, check for any casting warnings
+    if (result.success && typeOverrides.length > 0) {
+      try {
+        // Check if any columns have NULL values that might indicate casting failures
+        const nullCheckQueries = typeOverrides.map(override => 
+          `SELECT COUNT(*) as null_count FROM "${tableName}" WHERE "${override.columnName}" IS NULL`
+        );
+        
+        const castWarnings: string[] = [];
+        
+        for (let i = 0; i < typeOverrides.length; i++) {
+          const override = typeOverrides[i];
+          const nullResult = await executeReadQuery(nullCheckQueries[i]);
+          const nullCount = nullResult.toArray()[0]?.null_count || 0;
+          
+          if (nullCount > 0) {
+            castWarnings.push(
+              `Column "${override.columnName}" has ${nullCount} values that could not be cast to ${override.newType}`
+            );
+          }
+        }
+        
+        return {
+          ...result,
+          castWarnings: castWarnings.length > 0 ? castWarnings : undefined
+        };
+      } catch (warningError) {
+        console.warn('Could not check for casting warnings:', warningError);
+        // Return success even if we can't check warnings
+        return result;
+      }
+    }
+    
+    return result;
+  } catch (error: any) {
+    // If custom schema fails, try fallback to auto-detection
+    console.warn(`Custom schema failed for ${fileName}, falling back to auto-detection:`, error.message);
+    
+    const fallbackResult = await createTableFromFile(tableName, fileName, fileExtension);
+    
+    if (fallbackResult.success) {
+      return {
+        ...fallbackResult,
+        castWarnings: [`Custom type casting failed, used auto-detected types instead: ${error.message}`]
+      };
+    } else {
+      // Both custom and fallback failed
+      return {
+        success: false,
+        error: `Both custom schema and auto-detection failed. Custom error: ${error.message}. Auto-detection error: ${fallbackResult.error}`,
+        duration: fallbackResult.duration
+      };
+    }
+  }
+};
+
+/**
  * Check for database recovery on startup and notify user
  * This is called after database initialization to detect if DuckDB performed crash recovery
  */
