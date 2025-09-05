@@ -50,9 +50,22 @@ Status legend: [Done], [Partial], [Planned]
 ### High-Impact Improvements (Priority)
 
 #### Robust Import Pipeline & Schema Handling: [Partial]
-- **Current**: Drag-drop upload with basic schema preview and progress messaging
-- **Missing**: Pre-import schema preview with type overrides, cancel functionality during ingestion
-- **Impact**: Improves first-time user experience when loading data; builds confidence in data handling
+- **Current**: Inline pre‑import schema preview with editable type overrides, sample rows, and cancel
+  - Files are registered to DuckDB via `registerFileHandle` (BROWSER_FILEREADER) and read using `read_csv_auto`/`read_parquet`/`read_json_auto`.
+  - Schema detection uses `DESCRIBE SELECT * FROM read_*` plus a limited sample read; optional row count for small/Parquet files.
+  - Supported types: CSV, Parquet, JSON/JSONL/NDJSON; JSON reads use `maximum_object_size = 104857600` (100MB) safeguard.
+  - Upload is leader‑only in multi‑tab mode; UI enforces this and provides guidance.
+  - Guards include a 4GB file size check (WASM limit) and sanitized table names.
+- **Implemented**: Durable table creation and safe fallbacks
+  - `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*` wrapped in a transaction + `CHECKPOINT` with retries.
+  - Custom type overrides are applied via generated `SELECT` with per‑column casts; if casting fails, importer falls back to auto‑detected types.
+  - Post‑import cast warnings are surfaced by checking per‑column NULL counts for overridden columns.
+  - File→table provenance recorded in IndexedDB (`tableMetadataStore`).
+- **Missing**: Advanced parse controls and robustness polish
+  - Column renames; CSV parse options (delimiter/quote/escape/header), date/time format hints; per‑column null/trim rules.
+  - Multi‑file/partitioned imports, progress for very large ingests, and mid‑ingest cancellation.
+  - XLSX support (tracked separately below).
+- **Impact**: Clearer, safer imports with type control; graceful fallback reduces dead‑ends on bad conversions.
 
 #### Persistent "Saving" Indicator & Write Durability: [Done] 
 - **Current**: Real-time saving indicator connected to all write operations with automatic retry logic

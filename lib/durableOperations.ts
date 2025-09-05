@@ -38,7 +38,7 @@ export interface StreamingQueryOptions {
  * Executes a write operation through the multi-tab system with automatic durability and UI feedback
  */
 export const executeDurableWrite = async (
-  query: string, 
+  query: string,
   params: any[] = [],
   options?: {
     description?: string; // Human-readable description for logging
@@ -56,59 +56,92 @@ export const executeDurableWrite = async (
   
   try {
     const manager = DuckDBManager.getInstance();
-    
-    // Wrap the query in a transaction with checkpoint for durability
-    const transactionalQuery = `
-      BEGIN TRANSACTION;
-      ${query};
-      COMMIT;
-      CHECKPOINT;
-    `;
-    
+
+    // Decide whether we are leader (direct DB access) or client (proxy via leader)
+    // If we have a direct DB handle, we're the leader; otherwise we're a client
+    const dbState = await manager.getDatabaseState();
+    const isLeader = !!dbState?.db;
+
+    // Execute with retry to handle transient lock issues
     let lastError: Error | null = null;
-    
-    // Retry loop for handling transient database lock issues
+
     for (let attempt = 0; attempt <= retryAttempts; attempt++) {
+      // Leader path: run the full transaction on a single connection
+      if (isLeader) {
+        const db = await manager.getDatabase();
+        const conn = await db.connect();
+        try {
+          await conn.query('BEGIN TRANSACTION');
+
+          if (params && params.length > 0) {
+            const stmt = await conn.prepare(query);
+            try {
+              await stmt.query(...params);
+            } finally {
+              await stmt.close();
+            }
+          } else {
+            await conn.query(query);
+          }
+
+          await conn.query('COMMIT');
+          await conn.query('CHECKPOINT');
+
+          const duration = performance.now() - startTime;
+          console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
+          return { success: true, duration };
+        } catch (error: any) {
+          lastError = error;
+          try { await conn.query('ROLLBACK'); } catch {}
+
+          const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
+          if (isRetryable && attempt < retryAttempts) {
+            const delay = Math.pow(2, attempt) * 500;
+            console.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          break;
+        } finally {
+          await conn.close();
+        }
+      }
+
+      // Client path: proxy statements to leader; connection is stable per client
       try {
-        // Execute through multi-tab system as a write operation
-        const result = await manager.executeQuery(transactionalQuery, params, 'rw');
-        
+        await manager.executeQuery('BEGIN TRANSACTION', [], 'rw');
+        if (params && params.length > 0) {
+          await manager.executeQuery(query, params, 'rw');
+        } else {
+          await manager.executeQuery(query, [], 'rw');
+        }
+        await manager.executeQuery('COMMIT', [], 'rw');
+        await manager.executeQuery('CHECKPOINT', [], 'rw');
+
         const duration = performance.now() - startTime;
         console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
-        
-        return {
-          success: true,
-          rowsAffected: result?.numRows,
-          duration
-        };
+        return { success: true, duration };
       } catch (error: any) {
         lastError = error;
-        
-        // Check if this is a retryable error (database lock, busy, etc.)
+        try { await manager.executeQuery('ROLLBACK', [], 'rw'); } catch {}
+
         const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
-        
         if (isRetryable && attempt < retryAttempts) {
-          const delay = Math.pow(2, attempt) * 500; // Exponential backoff: 500ms, 1s, 2s
+          const delay = Math.pow(2, attempt) * 500;
           console.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        
-        // Non-retryable error or max attempts reached
         break;
       }
     }
-    
+
     // If we get here, all attempts failed
     const duration = performance.now() - startTime;
     console.error(`✗ ${description} failed after ${duration.toFixed(2)}ms:`, lastError);
-    
-    return {
-      success: false,
-      error: lastError?.message || String(lastError),
-      duration
-    };
-    
+
+    return { success: false, error: lastError?.message || String(lastError), duration };
+
   } catch (error: any) {
     const duration = performance.now() - startTime;
     console.error(`✗ ${description} failed after ${duration.toFixed(2)}ms:`, error);

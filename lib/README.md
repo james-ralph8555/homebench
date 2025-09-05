@@ -1,26 +1,48 @@
 # Engine & Storage
 
-Core browser engine, persistence, and utilities for HomeBench. These modules integrate DuckDB‑WASM, OPFS persistence, and IndexedDB metadata.
-
-For multi‑tab coordination, transport, and query streaming, see `lib/multitab/README.md`.
+Core browser engine, persistence, and utilities for HomeBench. These modules integrate DuckDB‑WASM, OPFS persistence, and IndexedDB metadata. For multi‑tab coordination, transport, and query streaming, see `lib/multitab/README.md`.
 
 ## Module Map
 
-- `duckdbManager.ts`: Initializes DuckDB‑WASM, selects bundle, manages OPFS, and exposes a query execution API.
-- `durableOperations.ts`: Multi‑tab aware read/write helpers with UI feedback; wraps writes with `BEGIN`/`COMMIT` + `CHECKPOINT` for durability. Includes retry logic and recovery notifications.
-- `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS, constants for DB path).
+- `duckdbManager.ts`: Boots multi‑tab, initializes DuckDB‑WASM (worker + bundle selection), opens OPFS DB, exposes unified query/streaming APIs, lifecycle helpers, and status.
+- `durableOperations.ts`: Multi‑tab aware read/write helpers with UI callbacks; wraps writes in `BEGIN`/`COMMIT` + `CHECKPOINT`, retries transient lock errors, emits recovery notices.
+- `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS) and constants (`DB_FILE_NAME`, `DB_VFS_PATH`).
 - `persistence.ts`: Session save/load/exists/delete helpers (checkpoint + flush semantics).
-- `exportUtils.ts`: Export results to CSV/Parquet/JSON via `COPY (...) TO` and browser downloads.
-- `chartExportUtils.ts`: Export charts to PNG/SVG.
-- `queryStore.ts`: Saved queries DB using Dexie/IndexedDB.
-- `tableMetadataStore.ts`: Lightweight table metadata in IndexedDB.
-- `performanceUtils.ts`: Timing and memory usage helpers.
-- `chartPerformanceUtils.ts`: Chart performance helpers.
-- `autoSaver.ts`: Auto‑save and periodic flush orchestration.
-- `multiTabQuery.ts`: Thin helpers for cross‑tab queries.
+- `exportUtils.ts`: Export SELECT results to CSV/Parquet/JSON via `COPY (...) TO`; download full `.duckdb` snapshot via `VACUUM INTO`.
+- `chartExportUtils.ts`: Export charts as PNG/SVG/HTML and underlying data as CSV/JSON.
+- `plotlyTransform.ts`: Arrow→Plotly transformations + smart chart suggestions and theming.
+- `schemaDetection.ts`: Inspect file schema, generate robust `CREATE TABLE ... AS SELECT ...` with `TRY_CAST` per‑column.
+- `queryStore.ts`: Saved queries, history, and preferences (Dexie/IndexedDB).
+- `tableMetadataStore.ts`: Table provenance metadata (IndexedDB).
+- `performanceUtils.ts` / `chartPerformanceUtils.ts`: Query/chart heuristics and metrics.
+- `autoSaver.ts`: Write detection, checkpoint/flush orchestration, batch writes.
+- `multiTabQuery.ts`: Convenience wrappers for read/stream; legacy write helper is deprecated.
 - `multitab/*`: Leader election and transport. See `multitab/README.md`.
-- `plotlyTransform.ts`: Transforms query results into a format that can be used by Plotly.js.
-- `utils.ts`: Misc shared helpers.
+- `utils.ts`: `cn()` Tailwind class combiner.
+
+## Quickstart
+
+- Read query (Arrow result):
+  - `import { executeReadQuery } from '@/lib/durableOperations'`
+  - `const table = await executeReadQuery('SELECT * FROM my_table LIMIT 100')`
+
+- Streaming read (Arrow or JSON):
+  - `import { executeStreamingReadQuery } from '@/lib/durableOperations'`
+  - Provide `onArrowChunk(buf)` or `onJsonChunk(rows)`; optional `chunkRows`.
+
+- Durable write with UI feedback and retries:
+  - `import { executeDurableWrite, registerWriteCallbacks } from '@/lib/durableOperations'`
+  - Register callbacks once: `registerWriteCallbacks({ onSavingChange, onRecoveryNotification })`
+  - `await executeDurableWrite('CREATE TABLE t AS SELECT ...')`
+
+- Create table from uploaded file:
+  - `createTableFromFile(name, fileName, ext)` or
+  - `createTableFromFileWithSchema(name, fileName, ext, columns, typeOverrides)`
+
+- OPFS utilities:
+  - `downloadSavedSessionAsDuckDB()`; `getDatabaseFileSize()`; `listOpfsFiles()`; `wipeOpfsData()`
+
+Tip: Prefer the `durableOperations` API from UI components. `DuckDBManager` handles multi‑tab boot and role detection automatically.
 
 ## Storage and Indexes
 
@@ -116,3 +138,40 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 - Virtualization: Row/column virtualization for large result sets.
 - Metrics: Query execution time and memory usage tracking.
 - Hints: Contextual suggestions for query optimization.
+
+## API Reference (Selected)
+
+- `durableOperations`
+  - `registerWriteCallbacks({ onSavingChange, onRecoveryNotification })`: Wire UI spinners/toasts.
+  - `executeReadQuery(sql, params?)`: Runs read via multi‑tab path, returns Arrow Table.
+  - `executeStreamingReadQuery(sql, params?, { format='arrow', chunkRows?, onArrowChunk?, onJsonChunk? })`: Streams results.
+  - `executeDurableWrite(sql, params?, { description?, retryAttempts? })`: Transaction + checkpoint + retries.
+  - `createTableFromFile(name, fileName, ext)`: Auto schema.
+  - `createTableFromFileWithSchema(name, fileName, ext, columns, overrides)`: `TRY_CAST` per override, warns on NULL casts.
+  - `checkDatabaseRecovery()`: Notifies if an OPFS session was restored.
+
+- `duckdbManager`
+  - `DuckDBManager.getInstance()`: Singleton orchestrator.
+  - `getDatabaseState() | getDatabase()`: Direct DB only when leader.
+  - `executeQuery(sql, args?, mode?)`: Unified read/write; clients proxy to leader.
+  - `executeStreamingQuery({ sql, args?, fmt?, chunkRows?, onArrowChunk?, onJsonChunk? })`.
+  - `getMultiTabStatus()`: Role, connections, liveness, and stats.
+  - `reset()`: Cleanup multi‑tab and close DB (used by OPFS wipe).
+
+- `opfsUtils`
+  - `downloadSavedSessionAsDuckDB()`, `getDatabaseFileSize()`, `listOpfsFiles()`, `wipeOpfsData()`.
+
+- `exportUtils`
+  - `exportQueryAsFile(db, sql, fileName, 'CSV'|'PARQUET'|'JSON')`: SELECT‑only.
+  - `downloadDatabaseFile(db)`: Snapshot full DB (`VACUUM INTO`).
+  - `suggestFileName(query, format)`.
+
+- `plotlyTransform` / `chartExportUtils`
+  - `suggestChartConfig(arrow)`, `transformArrowToPlotly(arrow, config)`, `applyThemeToLayout(layout, theme)`.
+  - `ChartExporter.exportChart(plotEl, chartConfig, { format: 'png'|'svg'|'html' })`.
+  - `ChartExporter.exportChartData(arrow, chartConfig, { format: 'csv'|'json' })`.
+
+## Notes & Caveats
+
+- All data and coordination remain entirely in‑browser. No network calls.
+- Leader election uses Web Locks; control/data plane currently use `BroadcastChannel` with a simulated `MessagePort` (see multitab docs). Arrow IPC is preferred; JSON fallback is automatic on serialization failure. Write queries are serialized on the leader.

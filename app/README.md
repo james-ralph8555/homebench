@@ -66,8 +66,8 @@ Requires WebAssembly and modern JavaScript features. If OPFS is unavailable, the
 ## Entry Points
 
 - `app/layout.tsx`: Root layout, fonts, and providers.
-- `app/page.tsx`: Home route hosting the workbench.
-- `contexts/DuckDBContext.tsx`: Integrates with `DuckDBManager`; only the leader holds a `db` instance. Clients see `db = null` and use manager/ops to query.
+- `app/page.tsx`: Home route hosting the workbench (`<TabbedWorkbench />`).
+- `contexts/DuckDBContext.tsx`: Integrates with `DuckDBManager`; only the leader holds a `db` instance. Clients see `db = null` and use manager/ops to query. Exposes multi‑tab status, saving state, and write access.
 
 ## Query Orchestration
 
@@ -96,6 +96,33 @@ sequenceDiagram
   Ops-->>UI: render grid/hints/metrics
 ```
 
+## Multi‑Tab Coordination
+
+- Roles: Single leader tab (owns DuckDB + OPFS); client tabs proxy queries.
+- Election: Web Locks API (`homebench:duckdb`) via `lib/multitab/boot.ts`; heartbeats over `BroadcastChannel`.
+- Transport: Queries stream over a simulated `MessagePort` on `BroadcastChannel`.
+- Streaming: Arrow IPC chunks (default 2MB) or JSON pages (`defaultChunkRows` = 20k). See `lib/multitab/types.ts`.
+- Failover: Clients reconnect with exponential backoff; in‑flight queries error with `LeaderCrashError`.
+- API surface: `DuckDBManager.executeQuery/executeStreamingQuery` and `lib/durableOperations` hide leader/client differences.
+
+See `lib/multitab/README.md` for details.
+
+## Persistence & Recovery
+
+- Database file: OPFS path `opfs://homebench.db` (created by `lib/duckdbManager.initializeDatabase`).
+- Durability: All writes are wrapped in `BEGIN/COMMIT` + `CHECKPOINT` with retry/backoff, then periodically flushed (`flushFiles`) on interval and visibility changes.
+- UI feedback: `lib/durableOperations.registerWriteCallbacks` drives a global “saving” indicator and recovery toasts.
+- Recovery: On startup, `checkDatabaseRecovery()` infers restored sessions and notifies the user (e.g., “Session restored with N tables”).
+- Session utilities: `hooks/usePersistence` exposes `loadSession`, `checkSessionExists`, `deleteSession`, and size formatting.
+
+## Data Import
+
+- File registration: Leader tab registers local file handles with DuckDB (BROWSER_FILEREADER).
+- Ingestion: `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*('<name>')` with format‑specific readers.
+- Schema control: `createTableFromFileWithSchema` uses `lib/schemaDetection.ts` to apply type overrides; falls back to auto‑detected types if casts fail, with post‑import warnings.
+- Limits and guards: 4GB browser WASM memory constraints; JSON reads use `maximum_object_size = 104857600` (100MB) to handle larger objects.
+- Provenance: `lib/tableMetadataStore.ts` records file→table metadata; queries are stored via Dexie (`lib/queryStore.ts`).
+
 ## Visualization
 
 The application includes a visualization feature that allows users to generate charts from query results. This feature is implemented using Plotly.js.
@@ -105,4 +132,8 @@ The application includes a visualization feature that allows users to generate c
 - **`components/ChartConfigSidebar.tsx`**: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
 - **`lib/plotlyTransform.ts`**: A utility that transforms the query results into a format that can be used by Plotly.js.
 
-```
+## Related Docs
+
+- Components: `components/README.md`
+- Engine & Storage: `lib/README.md`
+- Multi‑tab System: `lib/multitab/README.md`

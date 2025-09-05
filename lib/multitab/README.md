@@ -10,14 +10,15 @@ Single‑leader multi‑tab coordination for DuckDB‑WASM. The leader tab owns 
 ## Transport
 
 - Control plane: `BroadcastChannel` (`homebench:duckdb`) for heartbeats (`hb`), connection (`connect`/`connect_ack`), and query responses.
-- Data plane: Simulated `MessagePort` implemented over `BroadcastChannel` in `boot.ts` for query requests; responses are forwarded back to the simulated port.
-- Future‑ready: `leader.ts` also supports dedicated `MessagePort` connections and a connection pool for true ports.
+- Data plane: Queries are currently sent via `BroadcastChannel` from `boot.ts` (a simulated `MessagePort`). `leader.ts` handles both the simulated broadcast path (`handleBroadcastQuery`) and a real `MessagePort` pathway for future use.
+- Arrow fallback: If Arrow IPC serialization fails on the leader, it automatically falls back to JSON rows for that request.
 
 ## Query Streaming
 
 - Formats: Arrow IPC (preferred) or JSON batches.
 - Chunking: Arrow buffers chunked up to `maxChunkSize` (2MB default). JSON paginated with `LIMIT/OFFSET` (`defaultChunkRows` = 20k).
-- Writes: Serialized via `writeMutex` on the leader. `durableOperations.executeDurableWrite` wraps user SQL in `BEGIN/COMMIT + CHECKPOINT` for durability.
+- Writes: Serialized via `writeMutex` on the leader. UI writes should use `durableOperations.executeDurableWrite` which wraps `BEGIN/COMMIT + CHECKPOINT` and retries transient lock errors.
+- Cancellation: Implemented for the MessagePort pathway; the broadcast simulation does not support server‑side cancellation for in‑flight requests.
 
 ```mermaid
 sequenceDiagram
@@ -47,23 +48,55 @@ sequenceDiagram
 - Election: Web Locks API (`homebench:duckdb`). If unavailable, first tab becomes leader (fallback).
 - Heartbeats: Leader posts `hb` every 1.5s; clients mark `lastHeartbeat`.
 - Re‑election: If no heartbeat within grace window, clients attempt lock acquisition and promote.
-- Reconnection: Client backoff retries (exponential) and clears in‑flight queries with `LeaderCrashError`.
+- Reconnection: Client retries with exponential backoff and fails in‑flight queries with `LeaderCrashError`.
 
 ## Message Types
 
 - SqlRequest: `{ id, type: 'sql' | 'cancel', sql?, args?, mode: 'ro'|'rw', fmt?: 'arrow'|'json', chunkRows? }`
 - SqlResponse: `{ id, ok: boolean, chunk? (Arrow), rows? (JSON), done?, error? }`
-- Control: `hb`, `connect`, `connect_ack`, `query_response`
+- Control: `hb`, `connect`, `connect_ack`, `query`, `query_response`
 
-## Integration Points
+## Public Entry Points
 
-- `DuckDBManager`: Orchestrates leader/client roles; leader owns `AsyncDuckDB`; clients set `db = null` and always route through the transport.
-- `durableOperations`: Public API for components (`executeReadQuery`, `executeStreamingReadQuery`, `executeDurableWrite`).
-- `contexts/DuckDBContext`: Exposes multi‑tab status (role, connectivity, inflight counts) to the UI.
+- Boot/state/cleanup
+  - `boot(customConfig?)`: Start election + channel; resolves when role decided.
+  - `getMultiTabState()`: `{ isInitialized, isLeader, lastHeartbeat, ... }`.
+  - `cleanup()`: Stop timers and close channel.
+
+- Client (`client.ts`)
+  - `initializeClient(requestLeaderConnection)`: Sets up connection using provided requestor.
+  - `executeQuery(sql, args?, mode?)`: Returns Arrow table (auto JSON→Arrow fallback).
+  - `executeQueryJson(sql, args?, mode?)`: Returns JSON rows.
+  - `queryStream({ sql, args?, fmt?, chunkRows?, onArrowChunk?, onJsonChunk? })`.
+  - `cancelQuery(id)` / `cancelAllQueries()`.
+  - `getClientState()` / `forceReconnect()`.
+
+- Leader (`leader.ts`)
+  - `setLeaderDatabase(db, isOpfsSupported)` then `initializeLeader()`.
+  - `handleBroadcastQuery(queryData, channel)`: BroadcastChannel query handling.
+  - `handleClientConnection(port)`: Real `MessagePort` path (future).
+  - `getLeaderStats()`.
+
+- Manager (`duckdbManager.ts`)
+  - `DuckDBManager` boots multi‑tab (`boot()`), opens DB if leader, exposes unified query and streaming APIs, and reports status with `getMultiTabStatus()`.
+
+## Integration Guidance
+
+- Use `durableOperations` from UI: `executeReadQuery`, `executeStreamingReadQuery`, `executeDurableWrite`.
+- `multiTabQuery.executeWriteQuery` is deprecated; use `executeDurableWrite` for retries + UI callbacks.
+- Components should not hold raw DB connections; the leader manages connections, clients proxy via the transport.
+
+## Configuration
+
+- Defaults (`types.ts`):
+  - `lockName: 'homebench:duckdb'`
+  - `channelName: 'homebench:duckdb'`
+  - `heartbeatInterval: 1500ms`, `heartbeatGracePeriods: 3`
+  - `maxChunkSize: 2MB` (Arrow), `defaultChunkRows: 20000` (JSON)
+- Override with `boot({ ...overrides })` at app start.
 
 ## Non‑Functional Behavior
 
 - Privacy: All coordination and data remain in‑browser; no network usage.
 - Durability: Writes checkpointed and flushed; periodic background flush on visibility changes and interval.
 - Concurrency: Reads concurrent; writes serialized per leader process.
-
