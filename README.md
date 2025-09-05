@@ -192,6 +192,7 @@ npm start
 - `DuckDBProvider` (`contexts/DuckDBContext.tsx`): Singleton DuckDB-WASM instance with OPFS persistence
 - `TabbedWorkbench` (`components/TabbedWorkbench.tsx`): Main UI orchestrating all features
 - `FileUploader` (`components/FileUploader.tsx`): File ingestion with shadcn/ui components
+- `SchemaPreviewInline` (`components/SchemaPreviewInline.tsx`): Inline schema detection and type override workflow with live converted sample preview (uses `lib/durableOperations.executeReadQuery` with `TRY_CAST`).
 - `SQLEditor` (`components/SQLEditor.tsx`): CodeMirror-based SQL editor with debounced input
 - `ResultsGrid` (`components/ResultsGrid.tsx`): AG Grid virtualized results display
 - `SchemaExplorer` (`components/SchemaExplorer.tsx`): Database schema browser with caching
@@ -282,3 +283,5 @@ See `app/README.md` for supported browsers and current limitations.
 
 - DuckDB Documentation: https://duckdb.org/docs/
 - Next.js Documentation: https://nextjs.org/docs
+### UX Behavior Notes
+- During file import, when the inline schema preview is visible, `TabbedWorkbench` temporarily hides the table Data Preview area to keep focus on schema customization.

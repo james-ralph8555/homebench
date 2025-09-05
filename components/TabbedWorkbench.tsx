@@ -72,6 +72,7 @@ export const TabbedWorkbench: React.FC = () => {
   const [queryHints, setQueryHints] = useState<string[]>([]);
   const [queryMetrics, setQueryMetrics] = useState<{duration: number; memory?: number} | null>(null);
   const [previewTable, setPreviewTable] = useState<string | null>(null);
+  const [showingSchemaPreview, setShowingSchemaPreview] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [saveQueryCallback, setSaveQueryCallback] = useState<(() => void) | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -328,12 +329,16 @@ export const TabbedWorkbench: React.FC = () => {
               <div>
                 <h3 className="text-lg font-semibold mb-4">Upload Data</h3>
                 <Suspense fallback={<div className="animate-pulse stable-skeleton-uploader" />}>
-                  <FileUploader onFileUploaded={handleFileUploaded} />
+                  <FileUploader 
+                    onFileUploaded={handleFileUploaded}
+                    onSchemaPreviewShow={() => setShowingSchemaPreview(true)}
+                    onSchemaPreviewHide={() => setShowingSchemaPreview(false)}
+                  />
                 </Suspense>
               </div>
 
-              {/* Preview Section (show only after a file is imported) */}
-              {previewTable && (
+              {/* Preview Section (show only after a file is imported and schema preview is not active) */}
+              {previewTable && !showingSchemaPreview && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
                   <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">

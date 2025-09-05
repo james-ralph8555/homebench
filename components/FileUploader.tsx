@@ -10,9 +10,11 @@ import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
 
 interface FileUploaderProps {
   onFileUploaded?: (fileName: string) => void;
+  onSchemaPreviewShow?: () => void;
+  onSchemaPreviewHide?: () => void;
 }
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) => {
+export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSchemaPreviewShow, onSchemaPreviewHide }) => {
   const { db, multiTabStatus } = useDuckDB();
   const [message, setMessage] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -54,6 +56,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         await registerFile(file, fileExt);
         setPendingFile(file);
         setShowSchemaPreview(true);
+        onSchemaPreviewShow?.();
         setMessage(''); // Clear message since dialog will handle UI
       } catch (error: any) {
         setMessage(`Error preparing schema preview: ${error.message}`);
@@ -141,6 +144,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     
     setIsUploading(true);
     setShowSchemaPreview(false);
+    onSchemaPreviewHide?.();
     const startTime = performance.now();
     
     try {
@@ -192,6 +196,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
 
   const handleSchemaCancel = () => {
     setShowSchemaPreview(false);
+    onSchemaPreviewHide?.();
     setPendingFile(null);
     setMessage('Upload cancelled');
   };

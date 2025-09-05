@@ -26,6 +26,7 @@ import {
   type ColumnInfo,
   type TypeOverride
 } from '@/lib/schemaDetection';
+import { executeReadQuery } from '@/lib/durableOperations';
 
 interface SchemaPreviewInlineProps {
   fileName: string;
@@ -49,6 +50,7 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
   onCancel
 }) => {
   const [schemaData, setSchemaData] = useState<SchemaPreviewData | null>(null);
+  const [convertedSampleData, setConvertedSampleData] = useState<Record<string, any>[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [columnStates, setColumnStates] = useState<ColumnTypeState[]>([]);
@@ -77,11 +79,69 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
     }
   }, [fileName, fileExtension]);
 
+  const getConvertedSampleData = useCallback(async () => {
+    if (!schemaData || !fileName) return;
+
+    try {
+      // Build the read function based on file extension
+      let readFunction: string;
+      switch (fileExtension.toLowerCase()) {
+        case 'csv':
+          readFunction = `read_csv_auto('${fileName}')`;
+          break;
+        case 'parquet':
+          readFunction = `read_parquet('${fileName}')`;
+          break;
+        case 'json':
+        case 'jsonl':
+        case 'ndjson':
+          readFunction = `read_json_auto('${fileName}', maximum_object_size = 104857600)`;
+          break;
+        default:
+          throw new Error(`Unsupported file extension: ${fileExtension}`);
+      }
+
+      // Build SELECT query with CAST operations for modified columns
+      const selectClauses = columnStates.map((state) => {
+        if (state.isModified) {
+          // Use TRY_CAST to handle conversion errors gracefully
+          return `TRY_CAST("${state.column.column_name}" AS ${state.selectedType}) AS "${state.column.column_name}"`;
+        } else {
+          return `"${state.column.column_name}"`;
+        }
+      });
+
+      const convertQuery = `SELECT ${selectClauses.join(', ')} FROM ${readFunction} LIMIT 20`;
+      const result = await executeReadQuery(convertQuery);
+      const convertedData: Record<string, any>[] = result.toArray();
+      
+      setConvertedSampleData(convertedData);
+    } catch (error) {
+      console.error('Failed to get converted sample data:', error);
+      // Fall back to original sample data if conversion fails
+      setConvertedSampleData(schemaData.sampleData);
+    }
+  }, [schemaData, columnStates, fileName, fileExtension]);
+
   useEffect(() => {
     if (fileName) {
       loadSchemaData();
     }
   }, [fileName, fileExtension, loadSchemaData]);
+
+  // Update converted sample data when column states change
+  useEffect(() => {
+    if (columnStates.length > 0 && schemaData) {
+      getConvertedSampleData();
+    }
+  }, [columnStates, getConvertedSampleData, schemaData]);
+
+  // Initialize converted sample data when schema data loads
+  useEffect(() => {
+    if (schemaData && columnStates.length > 0) {
+      setConvertedSampleData(schemaData.sampleData);
+    }
+  }, [schemaData, columnStates.length]);
 
   const handleTypeChange = (columnName: string, newType: string) => {
     setColumnStates((prev) =>
@@ -232,7 +292,7 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
             </ScrollArea>
           </div>
 
-          {schemaData.sampleData && schemaData.sampleData.length > 0 && (
+          {convertedSampleData && convertedSampleData.length > 0 && (
             <div>
               <h4 className="text-md font-medium mb-3">Sample Data</h4>
               <ScrollArea className="h-96 border rounded-md">
@@ -247,19 +307,23 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {schemaData.sampleData.map((row, rowIndex) => (
+                    {convertedSampleData.map((row, rowIndex) => (
                       <TableRow key={rowIndex}>
                         {columnStates.map((state) => (
                           <TableCell
                             key={state.column.column_name}
-                            className="p-2 text-xs max-w-32 truncate"
+                            className={`p-2 text-xs max-w-32 truncate ${
+                              state.isModified ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                            }`}
                             title={String(row[state.column.column_name] || '')}
                           >
                             {row[state.column.column_name] === null ||
                             row[state.column.column_name] === undefined ? (
                               <span className="text-muted-foreground italic">null</span>
                             ) : (
-                              String(row[state.column.column_name])
+                              <span className={state.isModified ? 'font-medium' : ''}>
+                                {String(row[state.column.column_name])}
+                              </span>
                             )}
                           </TableCell>
                         ))}

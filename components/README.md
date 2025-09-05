@@ -42,7 +42,9 @@ graph TD
 - `PlotlyChart`: A wrapper around the Plotly.js library that handles chart rendering and updates.
 - `ChartConfigSidebar`: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
 - `FileUploader`: Ingests local files into DuckDB tables.
+- `FileUploader`: Ingests local files into DuckDB tables. Exposes optional callbacks `onSchemaPreviewShow()`/`onSchemaPreviewHide()` so parents can coordinate surrounding UI (e.g., hide data preview while the inline schema preview is active).
 - `DataPreview`: Lightweight preview of a selected table.
+- `SchemaPreviewInline`: Inline schema detection and type override UI used by `FileUploader`. Shows a live "converted" sample using `lib/durableOperations.executeReadQuery` with `TRY_CAST` for modified columns, so users can validate transformations before importing.
 - `SchemaExplorer`: Browses database schema and cached metadata.
 - `SavedQueries`: Lists and manages saved queries (Dexie/IndexedDB).
 - `SettingsModal`: Theme, OPFS visibility, downloads, and data management.
@@ -90,6 +92,11 @@ Reusable, focused building blocks located in `components/ui/`:
 
 - Prefer `lib/durableOperations` (`executeReadQuery`, `executeStreamingReadQuery`, `executeDurableWrite`) so client tabs proxy to the leader via `DuckDBManager`.
 - The `SQLEditor` reads `information_schema` via `lib/multiTabQuery.executeQuery` to power autocomplete (read-only, multi‑tab aware).
+- `SchemaPreviewInline` uses `executeReadQuery` to preview typed data with `TRY_CAST` for any modified columns.
+
+## UX Notes
+
+- `TabbedWorkbench` hides the table Data Preview while the `FileUploader`'s schema preview is shown to avoid split attention and layout shifts.
 
 ## SQLEditor
 
