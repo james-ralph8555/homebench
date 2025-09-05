@@ -170,7 +170,9 @@ export const TabbedWorkbench: React.FC = () => {
 
       if (isWriteOperation) {
         // Write operation - use durable write
-        const result = await executeDurableWrite(sql);
+        const result = await executeDurableWrite(sql, [], {
+          description: `SQL query execution (${trimmedSql.substring(0, 50)}...)`
+        });
         const duration = performance.now() - startTime;
         setQueryMetrics({ duration });
         

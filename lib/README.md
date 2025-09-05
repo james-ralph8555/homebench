@@ -7,7 +7,7 @@ For multi‑tab coordination, transport, and query streaming, see `lib/multitab/
 ## Module Map
 
 - `duckdbManager.ts`: Initializes DuckDB‑WASM, selects bundle, manages OPFS, and exposes a query execution API.
-- `durableOperations.ts`: Multi‑tab aware read/write helpers; wraps writes with `BEGIN`/`COMMIT` + `CHECKPOINT` for durability.
+- `durableOperations.ts`: Multi‑tab aware read/write helpers with UI feedback; wraps writes with `BEGIN`/`COMMIT` + `CHECKPOINT` for durability. Includes retry logic and recovery notifications.
 - `opfsUtils.ts`: OPFS helpers (file size, download DB, wipe/list OPFS, constants for DB path).
 - `persistence.ts`: Session save/load/exists/delete helpers (checkpoint + flush semantics).
 - `exportUtils.ts`: Export results to CSV/Parquet/JSON via `COPY (...) TO` and browser downloads.
@@ -58,7 +58,7 @@ sequenceDiagram
   Ops-->>UI: render ResultsGrid + metrics
 ```
 
-Persistence path (auto-save)
+Persistence path (auto-save with UI feedback)
 
 ```mermaid
 sequenceDiagram
@@ -68,25 +68,25 @@ sequenceDiagram
   participant OPFS as OPFS homebench.db
   participant Runtime as Runtime
 
-  UI->>Ops: execute write (INSERT/CREATE/...)
-  Ops->>DB: query(sql)
-  Ops->>DB: CHECKPOINT
-  Ops->>DB: flushFiles()
-  DB-->>OPFS: persist changes
-  Note over Ops,OPFS: Auto-save after each write
+  UI->>Ops: executeDurableWrite(sql, [], {description})
+  Note over UI: Shows saving indicator
+  Ops->>DB: BEGIN TRANSACTION; query(sql); COMMIT; CHECKPOINT;
+  DB-->>OPFS: persist changes (with native WAL)
+  Ops-->>UI: success/error + hide saving indicator
+  Note over UI: Shows success toast or retry on failure
 
   Runtime->>DB: flushFiles() periodically, on hide/unload
   DB-->>OPFS: persist changes
   Note over Runtime,OPFS: Background durability
 
   UI->>UI: app mount
-  UI->>Ops: checkSessionExists()
-  Ops->>DB: inspect main tables
+  UI->>Ops: checkDatabaseRecovery()
+  Ops->>DB: inspect main tables for recovery
   alt tables exist
-    UI->>Ops: loadSession()
-    Ops->>DB: CHECKPOINT (best-effort)
+    Ops-->>UI: "Session restored with N tables" toast
     UI-->>UI: refresh schema
   end
+  Note over Ops,DB: DuckDB handles crash recovery via native WAL
 ```
 
 ## Multi‑Tab
@@ -106,6 +106,8 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 - Session persistence: Implemented. Full DB saved/loaded via OPFS.
 - Zero‑copy ingestion: Not implemented. Uploads are copied into DuckDB tables via `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*('file')`.
 - Automatic session save: Implemented. Writes trigger CHECKPOINT + flush; periodic/background flush on hide/unload.
+- Write durability & reliability: Implemented. All writes use transactions with retry logic; real-time UI feedback; automatic crash recovery via DuckDB's native WAL.
+- Recovery notifications: Implemented. Users are notified when sessions are restored after browser crashes.
 
 ## Performance Features
 

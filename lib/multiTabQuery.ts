@@ -18,10 +18,22 @@ export async function executeQuery(sql: string, args?: any[]): Promise<any> {
 
 /**
  * Execute a write query through the multi-tab system
+ * @deprecated Use executeDurableWrite from @/lib/durableOperations instead for better reliability and UI feedback
  */
 export async function executeWriteQuery(sql: string, args?: any[]): Promise<any> {
-  const manager = DuckDBManager.getInstance();
-  return manager.executeQuery(sql, args, 'rw');
+  console.warn('executeWriteQuery is deprecated. Use executeDurableWrite from @/lib/durableOperations for better reliability.');
+  
+  // Redirect to durableOperations for consistency
+  const { executeDurableWrite } = await import('./durableOperations');
+  const result = await executeDurableWrite(sql, args, {
+    description: `Legacy write query: ${sql.substring(0, 50)}...`
+  });
+  
+  if (!result.success) {
+    throw new Error(result.error || 'Write operation failed');
+  }
+  
+  return result;
 }
 
 /**

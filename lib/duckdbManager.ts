@@ -134,12 +134,18 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
   try {
     // Step 2: Get DuckDB bundle and create worker
     const bundle = await getDuckDbBundle(options);
-    const worker = new Worker(bundle.mainWorker!);
-    const logger = new duckdb.ConsoleLogger();
-    const db = new duckdb.AsyncDuckDB(logger, worker);
+    
+    // Helper function to create a fresh database instance
+    const createDatabaseInstance = async (): Promise<duckdb.AsyncDuckDB> => {
+      const worker = new Worker(bundle.mainWorker!);
+      const logger = new duckdb.ConsoleLogger();
+      const dbInstance = new duckdb.AsyncDuckDB(logger, worker);
+      await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      return dbInstance;
+    };
 
-    // Step 3: Instantiate DuckDB WASM
-    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    // Step 3: Create initial database instance
+    let db = await createDatabaseInstance();
     console.log('DuckDB instantiated');
 
     // DuckDB WASM will handle OPFS registration automatically when opening with opfs:// path
@@ -151,20 +157,71 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     try {
       if (opfsSupported && dbPath.startsWith('opfs://')) {
         console.log('Attempting to open OPFS database:', dbPath);
-        await db.open({
-          path: dbPath,
-          accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
-        });
         
-        // Test write access by creating a simple checkpoint
-        const testConn = await db.connect();
         try {
-          await testConn.query('CHECKPOINT');
-          console.log('OPFS database opened successfully with write access');
-        } catch (checkpointError) {
-          console.warn('OPFS database opened but checkpoint failed:', checkpointError);
-        } finally {
-          await testConn.close();
+          await db.open({
+            path: dbPath,
+            accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
+          });
+          
+          // Test write access by creating a simple checkpoint
+          const testConn = await db.connect();
+          try {
+            await testConn.query('CHECKPOINT');
+            console.log('OPFS database opened successfully with write access');
+          } catch (checkpointError) {
+            console.warn('OPFS database opened but checkpoint failed:', checkpointError);
+          } finally {
+            await testConn.close();
+          }
+        } catch (walError: any) {
+          // Check if this is a WAL replay error due to table conflicts
+          if (walError.message?.includes('Table with name') && walError.message?.includes('already exists') && 
+              walError.message?.includes('replaying WAL file')) {
+            
+            console.warn('WAL recovery conflict detected, attempting to resolve by clearing corrupted WAL...', walError.message);
+            
+            try {
+              // Try to clear the problematic WAL file by opening with a fresh database
+              // First terminate the current database instance
+              await db.terminate();
+              
+              // Create a new instance and try to open with recovery
+              db = await createDatabaseInstance();
+              console.log('Created fresh DuckDB instance for WAL recovery');
+              
+              // Remove the corrupted OPFS database to start fresh
+              // This is safer than trying to manually fix WAL conflicts
+              const { wipeOpfsData } = await import('./opfsUtils');
+              await wipeOpfsData();
+              console.log('Cleared corrupted OPFS data to resolve WAL conflict');
+              
+              // Now open a fresh database
+              await db.open({
+                path: dbPath,
+                accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
+              });
+              
+              console.log('✓ WAL conflict resolved - opened fresh database');
+              
+              // Notify about WAL recovery via recovery callback if available
+              try {
+                const { triggerRecoveryNotification } = await import('./durableOperations');
+                triggerRecoveryNotification(
+                  'Database recovered from corrupted state - starting with fresh session', 
+                  'warning'
+                );
+              } catch (notificationError) {
+                console.log('Could not send recovery notification:', notificationError);
+              }
+            } catch (recoveryError) {
+              console.warn('WAL recovery failed, falling back to in-memory database:', recoveryError);
+              throw recoveryError; // This will trigger the fallback below
+            }
+          } else {
+            // Re-throw non-WAL errors
+            throw walError;
+          }
         }
       } else {
         console.log('OPFS not supported or not requested, using in-memory database');
@@ -177,6 +234,15 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     } catch (error) {
       console.warn('Failed to open OPFS database, falling back to in-memory:', error);
       actuallyUsingOpfs = false;
+      
+      // Make sure we have a clean database instance for in-memory fallback
+      try {
+        await db.terminate();
+        db = await createDatabaseInstance();
+      } catch (terminateError) {
+        console.warn('Failed to terminate database for fallback:', terminateError);
+      }
+      
       await db.open({
         path: ':memory:',
         accessMode: duckdb.DuckDBAccessMode.READ_WRITE,

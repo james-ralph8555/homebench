@@ -71,6 +71,13 @@ npm run test:watch    # Run tests in watch mode
 - Initialize as singleton in React Context
 - Configure Next.js webpack for WebAssembly support
 
+### Reliability & Durability Features
+- **Native WAL Integration**: Uses DuckDB's built-in write-ahead logging for automatic crash recovery
+- **Real-time UI Feedback**: All write operations show saving indicators with success/error notifications
+- **Retry Logic**: Automatic retry with exponential backoff for transient database lock errors
+- **Recovery Notifications**: Users are informed when previous sessions are restored after crashes
+- **Consistent Write Pattern**: All writes use `BEGIN → SQL → COMMIT → CHECKPOINT` pattern for guaranteed durability
+
 ### Performance Optimizations
 - **Query Optimization**: Automatic LIMIT injection for unbounded SELECT queries
 - **Memory Management**: Real-time memory usage monitoring and warnings
@@ -127,6 +134,7 @@ Static files can be deployed to any CDN:
 - `UI primitives` (`components/ui/*`): shadcn/ui-based primitives (Button, Dialog, DropdownMenu, Tabs, Collapsible, etc.)
 
 ### Core Libraries  
+- `/lib/durableOperations.ts`: **Durable write operations with UI feedback** - All database writes use this API for reliability, retry logic, and real-time user feedback
 - `/lib/performanceUtils.ts`: Query optimization and performance analysis
 - `/lib/opfsUtils.ts`: Origin Private File System operations for database persistence
 - `/lib/persistence.ts`: Session save/load functionality

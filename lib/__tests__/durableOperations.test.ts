@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock getDuckDB from duckdbManager used by durableOperations
+// Mock DuckDBManager used by durableOperations
 vi.mock('../duckdbManager', () => {
-  const calls: any[] = [];
   const makeConn = () => ({
     queries: [] as any[],
     preparedArgs: [] as any[],
     query: vi.fn(async function(this: any, sql: string) {
       this.queries.push(sql);
-      if (sql === 'USER_SQL_THROWS') throw new Error('boom');
+      // Handle the transactional query format from durableOperations
+      if (sql.includes('USER_SQL_THROWS')) throw new Error('boom');
       // simulate returning numRows for write
       return { numRows: 3 } as any;
     }),
@@ -27,9 +27,22 @@ vi.mock('../duckdbManager', () => {
     flushFiles: vi.fn(async () => {}),
   } as any;
 
+  // Mock DuckDBManager class
+  const mockManager = {
+    executeQuery: vi.fn(async (sql: string, _args?: any[], _mode?: string) => {
+      const conn = db._conn;
+      return conn.query(sql);
+    }),
+    getDatabaseState: vi.fn(async () => ({ db, isOpfsSupported: true }))
+  };
+
   return {
+    DuckDBManager: {
+      getInstance: () => mockManager
+    },
     getDuckDB: async () => db,
     __db: db,
+    __manager: mockManager,
   };
 });
 
@@ -51,10 +64,18 @@ describe('durableOperations', () => {
     const res = await executeDurableWrite('INSERT INTO t VALUES (1)');
     expect(res.success).toBe(true);
     expect(res.rowsAffected).toBe(3);
-    // checkpoint and flush were called
-    const db = (duckdbModule as any).__db;
-    expect(db._conn.queries).toContain('CHECKPOINT;');
-    expect(db.flushFiles).toHaveBeenCalled();
+    // Check that the manager was called with the transactional query
+    const manager = (duckdbModule as any).__manager;
+    expect(manager.executeQuery).toHaveBeenCalledWith(
+      expect.stringContaining('BEGIN TRANSACTION'),
+      [],
+      'rw'
+    );
+    expect(manager.executeQuery).toHaveBeenCalledWith(
+      expect.stringContaining('CHECKPOINT'),
+      [],
+      'rw'
+    );
   });
 
   it('rolls back and returns error on failure', async () => {
@@ -64,11 +85,18 @@ describe('durableOperations', () => {
   });
 
   it('executes read query (no checkpoint)', async () => {
-    // ensure clean slate
-    const db = (duckdbModule as any).__db;
-    db._conn.queries = [];
+    const manager = (duckdbModule as any).__manager;
+    manager.executeQuery.mockClear();
+    
     const rows = await executeReadQuery('SELECT 1');
     expect(rows).toBeTruthy();
-    expect(db._conn.queries.includes('CHECKPOINT;')).toBe(false);
+    
+    // Check that read query was executed without transactional wrapper
+    expect(manager.executeQuery).toHaveBeenCalledWith('SELECT 1', [], 'ro');
+    expect(manager.executeQuery).not.toHaveBeenCalledWith(
+      expect.stringContaining('CHECKPOINT'),
+      expect.anything(),
+      expect.anything()
+    );
   });
 });

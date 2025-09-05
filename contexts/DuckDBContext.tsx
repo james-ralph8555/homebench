@@ -70,6 +70,27 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
           console.log('✓ Database initialized in legacy mode');
         }
         
+        // Register saving callback with durableOperations
+        const { registerWriteCallbacks, checkDatabaseRecovery } = await import('@/lib/durableOperations');
+        registerWriteCallbacks({
+          onSavingChange: setSaving,
+          onRecoveryNotification: (message: string, type: 'info' | 'warning') => {
+            // Show toast notification for recovery
+            const { toast } = require('@/hooks/use-toast');
+            toast({
+              title: type === 'info' ? 'Database restored' : 'Recovery notice',
+              description: message,
+              variant: type === 'warning' ? 'destructive' : 'default',
+            });
+          }
+        });
+        
+        // Check for database recovery after initialization
+        // Delay slightly to ensure database is fully ready
+        setTimeout(() => {
+          checkDatabaseRecovery().catch(console.warn);
+        }, 1000);
+        
         // Only update state if component is still mounted
         if (isMountedRef.current) {
           setDb(dbState.db);

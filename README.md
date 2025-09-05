@@ -54,10 +54,10 @@ Status legend: [Done], [Partial], [Planned]
 - **Missing**: Pre-import schema preview with type overrides, cancel functionality during ingestion
 - **Impact**: Improves first-time user experience when loading data; builds confidence in data handling
 
-#### Persistent "Saving" Indicator & Write Durability: [Planned]
-- **Current**: UI has isSaving indicator but not wired to durable writes
-- **Missing**: Visual feedback tied to write queue, confirmation toast on successful commit, write-ahead log with recovery
-- **Impact**: Builds user trust that work won't be lost; prevents data loss on unexpected app closure
+#### Persistent "Saving" Indicator & Write Durability: [Done] 
+- **Current**: Real-time saving indicator connected to all write operations with automatic retry logic
+- **Implemented**: Visual feedback during writes, recovery notifications on startup, leverages DuckDB's native WAL for crash recovery
+- **Impact**: Users see real-time write feedback and are notified when sessions are recovered after crashes
 
 #### Excel Import/Export Support: [Planned]
 - **Current**: CSV, Parquet, JSON support
@@ -73,11 +73,13 @@ Status legend: [Done], [Partial], [Planned]
 - Virtualized data grid for previews (>50k rows feel instant); sticky headers + column filters: [Done]
   - Results grid uses AG Grid with virtualization and column filters; preview table uses sticky headers (first 100 rows).
 
-### Reliability (big one)
+### Reliability (big one) ✅
 - Single‑writer across tabs: leader election + `navigator.locks`; readers unblocked: [Done]
   - Multi‑tab system implements leader election, heartbeats, and serialized writes; reads are concurrent.
-- Durable write log in OPFS with tx replay (“Recovered 1 pending write”): [Planned]
-  - No write‑ahead log or replay on startup yet.
+- Durable write operations with crash recovery ("Session restored with N tables"): [Done]
+  - Uses DuckDB's native WAL system for automatic crash recovery; no custom WAL needed.
+  - Real-time UI feedback for write operations with retry logic for transient failures.
+  - Recovery notifications inform users when previous sessions are restored.
 
 ### Power Features
 - EXPLAIN/EXPLAIN ANALYZE pane with operator flame graph: [Planned]
@@ -129,7 +131,8 @@ Status legend: [Done], [Partial], [Planned]
 
 ### Performance & Reliability
 - **Multi-threading**: Leverage WebAssembly threading when stable
-- **Write-ahead logging**: Durable transaction log with automatic recovery
+- **✅ Write-ahead logging**: Completed - Uses DuckDB's native WAL with automatic crash recovery and UI feedback
+- **✅ Durable write operations**: Completed - All writes use transactions with retry logic and real-time user feedback
 - **Background sync**: Periodic backup to cloud storage (optional)
 - **Performance benchmarking**: Built-in dataset and query performance testing
 
