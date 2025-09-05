@@ -12,6 +12,8 @@ interface DuckDBContextType {
   isSaving: boolean;
   setSaving: (saving: boolean) => void;
   hasWriteAccess: boolean;
+  initializationStage: 'not_started' | 'loading' | 'ready' | 'error';
+  isReady: boolean;
   multiTabStatus?: {
     initialized: boolean;
     role?: 'leader' | 'client';
@@ -35,10 +37,11 @@ interface DuckDBProviderProps {
 // Create the provider component with proper lifecycle management
 export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [db, setDb] = useState<duckdb.AsyncDuckDB | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Changed to false for non-blocking
   const [error, setError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
+  const [initializationStage, setInitializationStage] = useState<'not_started' | 'loading' | 'ready' | 'error'>('not_started');
   const [multiTabStatus, setMultiTabStatus] = useState<DuckDBContextType['multiTabStatus']>({ initialized: false });
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,7 +49,8 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeDB = async () => {
       try {
-        setIsLoading(true);
+        setInitializationStage('loading');
+        setIsLoading(true); // Still set for backward compatibility
         setError(null);
 
         // Get database state from multi-tab aware manager
@@ -97,6 +101,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
           setHasWriteAccess(hasWrite);
           setMultiTabStatus(tabStatus as any);
           setIsLoading(false);
+          setInitializationStage('ready');
           console.log('✓ Database context initialized');
         }
       } catch (e: any) {
@@ -104,6 +109,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         if (isMountedRef.current) {
           setError(e);
           setIsLoading(false);
+          setInitializationStage('error');
         }
       }
     };
@@ -161,7 +167,20 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     }
   };
 
-  const value = { db, isLoading, error, isSaving, setSaving, hasWriteAccess, multiTabStatus };
+  // Computed property to determine if the database is ready for use
+  const isReady = initializationStage === 'ready' && db !== null;
+
+  const value = { 
+    db, 
+    isLoading, 
+    error, 
+    isSaving, 
+    setSaving, 
+    hasWriteAccess, 
+    initializationStage,
+    isReady,
+    multiTabStatus 
+  };
 
   return (
     <DuckDBContext.Provider value={value}>

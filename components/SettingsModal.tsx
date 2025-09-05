@@ -47,7 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   chartRowLimit,
   onChartRowLimitChange,
 }) => {
-  const { db, multiTabStatus } = useDuckDB();
+  const { db, initializationStage, isReady, multiTabStatus } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
     supported: false,
     fileSize: null,
@@ -315,6 +315,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-3">
             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Storage</h3>
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Database Status:</span>
+                <span className={`text-sm font-medium flex items-center space-x-1 ${
+                  initializationStage === 'ready' ? 'text-green-600' :
+                  initializationStage === 'loading' ? 'text-blue-600' :
+                  initializationStage === 'error' ? 'text-red-600' :
+                  'text-gray-600'
+                }`}>
+                  {initializationStage === 'loading' && (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
+                  )}
+                  <span>
+                    {initializationStage === 'ready' ? 'Ready' :
+                     initializationStage === 'loading' ? 'Loading...' :
+                     initializationStage === 'error' ? 'Failed' :
+                     'Not Started'}
+                  </span>
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">OPFS Support:</span>
                 <span className={`text-sm font-medium ${

@@ -60,7 +60,7 @@ const Visualization = dynamic(() => import('./Visualization').then(mod => ({ def
 type TabType = 'upload' | 'query' | 'visualization';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, multiTabStatus } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, initializationStage, isReady, multiTabStatus } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
@@ -132,7 +132,7 @@ export const TabbedWorkbench: React.FC = () => {
   // Auto-load session on component mount
   React.useEffect(() => {
     const checkAndLoadSession = async () => {
-      if ((!db && !multiTabStatus?.initialized) || !isSupported || autoLoaded) return;
+      if (!isReady || !isSupported || autoLoaded) return;
       
       try {
         const exists = await checkSessionExists();
@@ -149,11 +149,11 @@ export const TabbedWorkbench: React.FC = () => {
     };
 
     checkAndLoadSession();
-  }, [db, multiTabStatus?.initialized, isSupported, autoLoaded, checkSessionExists, loadSession]);
+  }, [isReady, isSupported, autoLoaded, checkSessionExists, loadSession]);
 
   const executeQuery = async () => {
-    // Check if database is available (direct db for leaders, multi-tab for clients)
-    if (!db && !multiTabStatus?.initialized) return;
+    // Check if database is ready for queries
+    if (!isReady && !multiTabStatus?.initialized) return;
     
     setIsQuerying(true);
     setError(null);
@@ -225,39 +225,25 @@ export const TabbedWorkbench: React.FC = () => {
     setSql(prev => prev + `"${tableName}"."${columnName}"`);
   }, []);
 
-  if (dbError) {
-    return (
-      <div className="min-h-screen bg-background text-foreground p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
-              Database Initialization Error
-            </h2>
-            <p className="text-red-600 dark:text-red-300">
-              {dbError.message}
-            </p>
-            <p className="text-sm text-red-500 dark:text-red-400 mt-2">
-              Please refresh the page to try again. Make sure your browser supports WebAssembly.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Database initialization status message (non-blocking, only show loading/error)
+  const getDatabaseStatusMessage = () => {
+    if (dbError) {
+      return {
+        type: 'error' as const,
+        message: `Database initialization failed: ${dbError.message}. Please refresh the page.`
+      };
+    }
+    if (initializationStage === 'loading') {
+      return {
+        type: 'loading' as const,
+        message: 'Loading database engine...'
+      };
+    }
+    // Don't show "ready" status - it's implied when features work
+    return null;
+  };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold mb-2">Initializing HomeBench</h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading WebAssembly modules...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const dbStatus = getDatabaseStatusMessage();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -296,18 +282,33 @@ export const TabbedWorkbench: React.FC = () => {
               </div>
             </div>
             {/* Tagline under the row on all sizes */}
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-              <span>Privacy-by-Design SQL Workbench</span>
-              <div className="relative group">
-                <InfoIcon 
-                  size={14} 
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors" 
-                />
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  HomeBench processes all your data locally in your browser.<br />Nothing is ever sent to our servers.
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <span>Privacy-by-Design SQL Workbench</span>
+                <div className="relative group">
+                  <InfoIcon 
+                    size={14} 
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors" 
+                  />
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    HomeBench processes all your data locally in your browser.<br />Nothing is ever sent to our servers.
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
+                  </div>
                 </div>
               </div>
+              
+              {/* Database Status Indicator */}
+              {dbStatus && (
+                <div className={`flex items-center space-x-2 text-sm ${
+                  dbStatus.type === 'error' ? 'text-red-600 dark:text-red-400' :
+                  'text-blue-600 dark:text-blue-400'
+                }`}>
+                  {dbStatus.type === 'loading' && (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                  )}
+                  <span>{dbStatus.message}</span>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -459,12 +460,14 @@ export const TabbedWorkbench: React.FC = () => {
                         <Button onClick={() => saveQueryCallback?.()} variant="secondary">
                           Save Current
                         </Button>
-                        <Button onClick={executeQuery} disabled={isQuerying || (!db && !multiTabStatus?.initialized)}>
+                        <Button onClick={executeQuery} disabled={isQuerying || (!isReady && !multiTabStatus?.initialized)}>
                           {isQuerying ? (
                             <span className="flex items-center">
                               <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                               Running...
                             </span>
+                          ) : !isReady && initializationStage === 'loading' ? (
+                            'Loading Database...'
                           ) : (
                             'Run Query'
                           )}

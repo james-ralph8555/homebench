@@ -15,7 +15,7 @@ interface FileUploaderProps {
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSchemaPreviewShow, onSchemaPreviewHide }) => {
-  const { db, multiTabStatus } = useDuckDB();
+  const { db, isReady, initializationStage, multiTabStatus } = useDuckDB();
   const [message, setMessage] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
@@ -27,11 +27,15 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
   const handleFileUpload = async (file: File, useSchemaPreview = true) => {
     // File uploads require direct database access for file registration
     // Only leader tabs have this capability
-    if (!db) {
+    if (!isReady) {
       if (multiTabStatus?.role === 'client') {
         setMessage('File uploads must be done from the original tab that has the database. Please switch to that tab to upload files.');
+      } else if (initializationStage === 'loading') {
+        setMessage('Database is still loading. Please wait a moment and try again.');
+      } else if (initializationStage === 'error') {
+        setMessage('Database failed to initialize. Please refresh the page.');
       } else {
-        setMessage('Database not initialized. Please refresh the page.');
+        setMessage('Database not ready. Please refresh the page.');
       }
       return;
     }
@@ -240,9 +244,11 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
             ${isDragOver 
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+              : !isReady
+              ? 'border-gray-300 dark:border-gray-600 opacity-60'
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
             }
-            ${isUploading ? 'pointer-events-none opacity-50' : ''}
+            ${isUploading || !isReady ? 'pointer-events-none opacity-50' : ''}
           `}
           style={{ minHeight: '180px' }}
           onDrop={handleDrop}
@@ -256,7 +262,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             onChange={handleFileChange}
             accept=".csv,.parquet,.json,.jsonl,.ndjson"
             className="hidden"
-            disabled={isUploading}
+            disabled={isUploading || !isReady}
           />
           
           <div className="space-y-3">
@@ -265,10 +271,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             </div>
             <div>
               <p className="text-lg font-medium">
-                {isUploading ? 'Processing file...' : 'Upload your data file'}
+                {isUploading ? 'Processing file...' : !isReady ? 'Database Loading...' : 'Upload your data file'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Drag and drop or click to select CSV, Parquet, or JSON files
+                {!isReady ? 'Please wait for database to initialize' : 'Drag and drop or click to select CSV, Parquet, or JSON files'}
               </p>
             </div>
           </div>

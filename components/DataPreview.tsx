@@ -11,14 +11,14 @@ interface DataPreviewProps {
 }
 
 export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
-  const { db } = useDuckDB();
+  const { db, isReady } = useDuckDB();
   const [previewData, setPreviewData] = useState<ArrowTable | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tableInfo, setTableInfo] = useState<{ rowCount: number; columns: any[] } | null>(null);
 
   const loadPreview = useCallback(async () => {
-    if (!tableName) return;
+    if (!tableName || !isReady) return;
 
     setIsLoading(true);
     setError(null);
@@ -41,7 +41,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ tableName }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [tableName]);
+  }, [tableName, isReady]);
 
   useEffect(() => {
     if (tableName) {

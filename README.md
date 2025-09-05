@@ -86,7 +86,7 @@ Status legend: [Done], [Partial], [Planned]
 - Virtualized data grid for previews (>50k rows feel instant); sticky headers + column filters: [Done]
   - Results grid uses AG Grid with virtualization and column filters; preview table uses sticky headers (first 100 rows).
 
-### Reliability (big one) ✅
+### Reliability (big one) 
 - Single‑writer across tabs: leader election + `navigator.locks`; readers unblocked: [Done]
   - Multi‑tab system implements leader election, heartbeats, and serialized writes; reads are concurrent.
 - Durable write operations with crash recovery ("Session restored with N tables"): [Done]
@@ -144,8 +144,8 @@ Status legend: [Done], [Partial], [Planned]
 
 ### Performance & Reliability
 - **Multi-threading**: Leverage WebAssembly threading when stable
-- **✅ Write-ahead logging**: Completed - Uses DuckDB's native WAL with automatic crash recovery and UI feedback
-- **✅ Durable write operations**: Completed - All writes use transactions with retry logic and real-time user feedback
+- **Write-ahead logging**: Completed - Uses DuckDB's native WAL with automatic crash recovery and UI feedback
+- **Durable write operations**: Completed - All writes use transactions with retry logic and real-time user feedback
 - **Background sync**: Periodic backup to cloud storage (optional)
 - **Performance benchmarking**: Built-in dataset and query performance testing
 
@@ -196,6 +196,14 @@ npm start
 - `SQLEditor` (`components/SQLEditor.tsx`): CodeMirror-based SQL editor with debounced input
 - `ResultsGrid` (`components/ResultsGrid.tsx`): AG Grid virtualized results display
 - `SchemaExplorer` (`components/SchemaExplorer.tsx`): Database schema browser with caching
+
+#### Initialization Lifecycle
+- Context state: `DuckDBProvider` exposes `initializationStage: 'not_started' | 'loading' | 'ready' | 'error'` and a computed `isReady`.
+- UI gating: Components use `isReady` to guard DB operations and adjust affordances:
+  - `FileUploader`: Disables dropzone/input while DB loads; shows status message.
+  - `SchemaExplorer`: Shows a small loading/error placeholder until ready.
+  - `TabbedWorkbench`: Shows a lightweight status indicator (loading/error) without blocking the UI.
+- Backward compatibility: Existing `isLoading` and `error` remain; prefer `initializationStage`/`isReady` in new code.
 
 #### Engine & Storage Libraries
 - `/lib/performanceUtils.ts`: Query optimization and performance analysis

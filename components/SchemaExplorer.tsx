@@ -29,7 +29,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   onColumnSelect,
   refreshTrigger 
 }) => {
-  const { db } = useDuckDB();
+  const { db, isReady, initializationStage } = useDuckDB();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<TableInfo[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -39,6 +39,14 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   const [schemaCache, setSchemaCache] = useState<Map<string, { tables: TableInfo[], views: TableInfo[], timestamp: number }>>(new Map());
 
   const loadSchema = useCallback(async () => {
+    // Don't load schema if database isn't ready
+    if (!isReady) {
+      setTables([]);
+      setViews([]);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
 
     // Check cache first (5 second cache)
     const cacheKey = 'schema';
@@ -156,7 +164,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [schemaCache]);
+  }, [isReady, schemaCache]);
 
   useEffect(() => {
     loadSchema();
@@ -266,6 +274,24 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
       )}
     </div>
   ), [handleTableClick, handleColumnClick, getTypeIcon]);
+
+  // Show database initialization status
+  if (!isReady) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        {initializationStage === 'loading' ? (
+          <>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="ml-2 text-sm">Loading database...</span>
+          </>
+        ) : initializationStage === 'error' ? (
+          <span className="text-sm text-red-600 dark:text-red-400">Database failed to load</span>
+        ) : (
+          <span className="text-sm text-gray-500 dark:text-gray-400">Database not ready</span>
+        )}
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
