@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GridOptions } from 'ag-grid-community';
 import { Table as ArrowTable } from 'apache-arrow';
@@ -17,50 +17,99 @@ interface ResultsGridProps {
 }
 
 export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', theme = 'dark' }) => {
+  // Hard safety cap to keep UI responsive
+  const MAX_DISPLAY_ROWS = 100_000;
+  const BATCH_SIZE = 2_000;
+
   // Memoize number formatter to prevent recreation on every render
   const numberFormatter = useCallback((params: any) => {
     if (params.value === null || params.value === undefined) return '';
     return typeof params.value === 'number' ? params.value.toFixed(2) : params.value;
   }, []);
 
-  // Memoize the transformation to prevent re-computation on re-renders
-  const { columnDefs, rowData, rowCount } = useMemo(() => {
-    if (!data || data.numRows === 0) {
-      return { columnDefs: [], rowData: [], rowCount: 0 };
-    }
-
-    const fields: ColDef[] = data.schema.fields.map(field => {
-      const isNumericType = field.type.toString().includes('float') || 
-                           field.type.toString().includes('double') ||
-                           field.type.toString().includes('int');
-      
+  // Columns are cheap to compute
+  const columnDefs: ColDef[] = useMemo(() => {
+    if (!data || data.numRows === 0) return [];
+    return data.schema.fields.map(field => {
+      const isNumericType = field.type.toString().includes('float') ||
+        field.type.toString().includes('double') ||
+        field.type.toString().includes('int');
       return {
         headerName: field.name,
         field: field.name,
         sortable: true,
         filter: isNumericType ? 'agNumberColumnFilter' : 'agTextColumnFilter',
         resizable: true,
-        // Add type-specific formatting for floating point numbers only
         ...(field.type.toString().includes('float') || field.type.toString().includes('double') ? {
           valueFormatter: numberFormatter,
           type: 'numericColumn'
         } : {}),
-        // Optimize rendering for large datasets
-        enableRowGroup: false, // Disable for performance
-        enablePivot: false, // Disable for performance
-      };
+        enableRowGroup: false,
+        enablePivot: false,
+      } as ColDef;
     });
-
-    // Convert Arrow Table to an array of objects for AG Grid
-    // Use lazy conversion for better memory usage with large datasets
-    const rows = data.toArray().map(row => row.toJSON());
-
-    return { 
-      columnDefs: fields, 
-      rowData: rows, 
-      rowCount: data.numRows 
-    };
   }, [data, numberFormatter]);
+
+  // Incremental row conversion to keep UI fluid
+  const [rowData, setRowData] = useState<any[]>([]);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [displayMax, setDisplayMax] = useState(0);
+  const iteratorRef = useRef<Iterator<any> | null>(null);
+  const processedRef = useRef(0);
+
+  const rowCount = data?.numRows ?? 0;
+
+  useEffect(() => {
+    if (!data || rowCount === 0) {
+      setRowData([]);
+      setIsBuilding(false);
+      setDisplayMax(0);
+      iteratorRef.current = null;
+      processedRef.current = 0;
+      return;
+    }
+
+    // Reset state when new data arrives
+    setRowData([]);
+    setIsBuilding(true);
+    processedRef.current = 0;
+    const maxRows = Math.min(rowCount, MAX_DISPLAY_ROWS);
+    setDisplayMax(maxRows);
+
+    // Lazy iterator over rows prevents building all at once
+    const iter = (data as any)[Symbol.iterator]?.();
+    iteratorRef.current = iter || null;
+
+    let cancelled = false;
+    const processBatch = () => {
+      if (cancelled) return;
+      const nextRows: any[] = [];
+      let i = 0;
+      while (i < BATCH_SIZE && processedRef.current < maxRows) {
+        const it = iteratorRef.current?.next?.();
+        if (!it || it.done) break;
+        const row = it.value;
+        nextRows.push(typeof row?.toJSON === 'function' ? row.toJSON() : row);
+        i++;
+        processedRef.current++;
+      }
+      if (nextRows.length) {
+        setRowData(prev => (prev.length ? prev.concat(nextRows) : nextRows));
+      }
+      if (processedRef.current < maxRows) {
+        // Yield to the main thread
+        setTimeout(processBatch, 0);
+      } else {
+        setIsBuilding(false);
+      }
+    };
+
+    // Kick off incremental processing
+    setTimeout(processBatch, 0);
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, rowCount]);
 
   // Calculate optimal performance settings
   const performanceConfig = useMemo(() => {
@@ -127,11 +176,21 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', 
 
   return (
     <div className={`stable-container ${className}`}>
+      {isBuilding && (
+        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+          Preparing rows… {rowData.length.toLocaleString()}/{displayMax.toLocaleString()}
+        </div>
+      )}
       <div className={theme === 'dark' ? 'ag-theme-quartz-dark' : 'ag-theme-alpine'} style={{ height: 500, width: '100%' }}>
         <AgGridReact {...gridOptions} />
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-        <span>{rowCount.toLocaleString()} rows × {columnDefs.length} columns</span>
+        <span>
+          {Math.min(rowCount, displayMax || rowCount).toLocaleString()} {displayMax && displayMax < rowCount ? 'of ' : ''}
+          {displayMax && displayMax < rowCount ? rowCount.toLocaleString() + ' ' : ''}
+          rows × {columnDefs.length} columns
+          {displayMax && displayMax < rowCount ? ' • showing first ' + displayMax.toLocaleString() : ''}
+        </span>
         <span>Est. memory: {MemoryManager.formatMemorySize(performanceConfig.estimatedMemory)}</span>
       </div>
     </div>

@@ -191,7 +191,7 @@ export const TabbedWorkbench: React.FC = () => {
           setSchemaRefreshTrigger(prev => prev + 1);
         }
       } else {
-        // Read operation
+        // Read operation (no auto-LIMIT here; previews limit in display only)
         const result = await executeReadQuery(sql);
         const duration = performance.now() - startTime;
         setResults(result as ArrowTable);
