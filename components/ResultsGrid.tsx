@@ -111,12 +111,7 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', 
   if (!data || data.numRows === 0) {
     return (
       <div className={`stable-container ${className}`}>
-        <div className="mb-2 space-y-1">
-          <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-            <span>No results</span>
-            <span className="text-xs">Waiting for query...</span>
-          </div>
-        </div>
+        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">No results • Waiting for query…</div>
         <div className="flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded-lg" style={{ height: 500 }}>
           <div className="text-center text-gray-500 dark:text-gray-400">
             <div className="mb-2 text-gray-400 flex justify-center">
@@ -132,17 +127,12 @@ export const ResultsGrid: React.FC<ResultsGridProps> = ({ data, className = '', 
 
   return (
     <div className={`stable-container ${className}`}>
-      <div className="mb-2 space-y-1">
-        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-          <span>Showing {rowCount.toLocaleString()} rows × {columnDefs.length} columns</span>
-          <span className="text-xs">
-            Est. memory: {MemoryManager.formatMemorySize(performanceConfig.estimatedMemory)}
-          </span>
-        </div>
-        
-      </div>
       <div className={theme === 'dark' ? 'ag-theme-quartz-dark' : 'ag-theme-alpine'} style={{ height: 500, width: '100%' }}>
         <AgGridReact {...gridOptions} />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+        <span>{rowCount.toLocaleString()} rows × {columnDefs.length} columns</span>
+        <span>Est. memory: {MemoryManager.formatMemorySize(performanceConfig.estimatedMemory)}</span>
       </div>
     </div>
   );

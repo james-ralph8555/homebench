@@ -478,6 +478,31 @@ export const TabbedWorkbench: React.FC = () => {
                   </Suspense>
                 </div>
 
+                {/* Results directly follow editor to fuse them */}
+                <div>
+                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
+                    <ResultsGrid data={results!} theme={theme} />
+                  </Suspense>
+                  {/* Subtle inline metrics below results */}
+                  {queryMetrics && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Executed in {queryMetrics.duration.toFixed(2)}ms{queryMetrics.memory ? ` • Mem ${(queryMetrics.memory / 1024 / 1024).toFixed(2)}MB` : ''}
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Display (kept, but below results for less disruption) */}
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+                      Query Error
+                    </h4>
+                    <pre className="text-sm text-red-600 dark:text-red-300 whitespace-pre-wrap">
+                      {error}
+                    </pre>
+                  </div>
+                )}
+
                 {/* Performance Hints */}
                 <div className={`stable-hints-container ${queryHints.length > 0 ? 'has-content' : ''}`}>
                   {queryHints.length > 0 && (
@@ -492,47 +517,6 @@ export const TabbedWorkbench: React.FC = () => {
                       </ul>
                     </div>
                   )}
-                </div>
-
-                {/* Query Metrics */}
-                <div className="stable-metrics-container">
-                  {queryMetrics && (
-                    <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Query executed in {queryMetrics.duration.toFixed(2)}ms
-                        </span>
-                        {queryMetrics.memory && (
-                          <span className="text-gray-600 dark:text-gray-400">
-                            Memory: {(queryMetrics.memory / 1024 / 1024).toFixed(2)}MB
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Error Display */}
-                {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
-                      Query Error
-                    </h4>
-                    <pre className="text-sm text-red-600 dark:text-red-300 whitespace-pre-wrap">
-                      {error}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Results Section */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold">Query Results</h3>
-                  </div>
-                  
-                  <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
-                    <ResultsGrid data={results!} theme={theme} />
-                  </Suspense>
                 </div>
               </div>
             </div>
