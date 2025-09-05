@@ -332,15 +332,17 @@ export const TabbedWorkbench: React.FC = () => {
                 </Suspense>
               </div>
 
-              {/* Preview Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">
-                  <Suspense fallback={<div className="animate-pulse stable-skeleton-preview" />}>
-                    <DataPreview tableName={previewTable} />
-                  </Suspense>
+              {/* Preview Section (show only after a file is imported) */}
+              {previewTable && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 min-h-96">
+                    <Suspense fallback={<div className="animate-pulse stable-skeleton-preview" />}>
+                      <DataPreview tableName={previewTable} />
+                    </Suspense>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </TabsContent>
 

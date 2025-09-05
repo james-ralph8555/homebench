@@ -5,8 +5,7 @@ import { FolderIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { markTableAsUploaded } from '@/lib/tableMetadataStore';
 import { createTableFromFile, createTableFromFileWithSchema } from '@/lib/durableOperations';
-import { SchemaPreviewDialog } from './SchemaPreviewDialog';
-import { Button } from '@/components/ui/Button';
+import { SchemaPreviewInline } from './SchemaPreviewInline';
 import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
 
 interface FileUploaderProps {
@@ -20,10 +19,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [showSchemaPreview, setShowSchemaPreview] = useState<boolean>(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [schemaColumns, setSchemaColumns] = useState<ColumnInfo[]>([]);
+  // Inline schema preview state is managed within SchemaPreviewInline
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (file: File, useSchemaPreview = false) => {
+  const handleFileUpload = async (file: File, useSchemaPreview = true) => {
     // File uploads require direct database access for file registration
     // Only leader tabs have this capability
     if (!db) {
@@ -139,7 +138,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     }
   };
 
-  const handleSchemaImport = async (typeOverrides: TypeOverride[]) => {
+  const handleSchemaImport = async (columns: ColumnInfo[], typeOverrides: TypeOverride[]) => {
     if (!pendingFile) return;
     
     setIsUploading(true);
@@ -157,7 +156,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         tableName,
         pendingFile.name,
         fileExt,
-        schemaColumns,
+        columns,
         typeOverrides
       );
       
@@ -189,21 +188,20 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     } finally {
       setIsUploading(false);
       setPendingFile(null);
-      setSchemaColumns([]);
+      // No-op
     }
   };
 
   const handleSchemaCancel = () => {
     setShowSchemaPreview(false);
     setPendingFile(null);
-    setSchemaColumns([]);
     setMessage('Upload cancelled');
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      await handleFileUpload(file, false); // Direct import by default
+      await handleFileUpload(file, true); // Always use schema preview
     }
   };
 
@@ -213,7 +211,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
     
     const files = event.dataTransfer.files;
     if (files.length > 0) {
-      await handleFileUpload(files[0], false); // Direct import by default
+      await handleFileUpload(files[0], true); // Always use schema preview
     }
   };
 
@@ -253,7 +251,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
             ref={fileInputRef}
             type="file"
             onChange={handleFileChange}
-            accept=".csv,.parquet,.json"
+            accept=".csv,.parquet,.json,.jsonl,.ndjson"
             className="hidden"
             disabled={isUploading}
           />
@@ -273,30 +271,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
           </div>
         </div>
         
-        {/* Schema Preview Option */}
-        {!isUploading && (
-          <div className="mt-4 flex justify-center">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv,.parquet,.json';
-                input.onchange = (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) {
-                    handleFileUpload(file, true);
-                  }
-                };
-                input.click();
-              }}
-              disabled={isUploading}
-            >
-              Upload with Schema Preview
-            </Button>
-          </div>
-        )}
+        {/* Unified flow: file selection leads to inline schema preview */}
         
         <div className="mt-4 stable-container" style={{ minHeight: message || isUploading ? 'auto' : '0px' }}>
           {(message || isUploading) && (
@@ -313,15 +288,15 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded }) =>
         </div>
       </div>
 
-      {/* Schema Preview Dialog */}
-      <SchemaPreviewDialog
-        isOpen={showSchemaPreview}
-        onClose={() => setShowSchemaPreview(false)}
-        onImport={handleSchemaImport}
-        onCancel={handleSchemaCancel}
-        fileName={pendingFile?.name || ''}
-        fileExtension={pendingFile?.name.split('.').pop()?.toLowerCase() || ''}
-      />
+      {/* Inline Schema Preview */}
+      {showSchemaPreview && pendingFile && (
+        <SchemaPreviewInline
+          fileName={pendingFile.name}
+          fileExtension={pendingFile.name.split('.').pop()?.toLowerCase() || ''}
+          onImport={handleSchemaImport}
+          onCancel={handleSchemaCancel}
+        />
+      )}
     </>
   );
 };

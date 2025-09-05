@@ -71,7 +71,7 @@ export const SchemaPreviewDialog: React.FC<SchemaPreviewDialogProps> = ({
     setError(null);
     
     try {
-      const data = await detectFileSchema(fileName, fileExtension, 5); // Get 5 sample rows
+      const data = await detectFileSchema(fileName, fileExtension, 20); // Show more sample rows
       setSchemaData(data);
       
       // Initialize column states with detected types
@@ -201,31 +201,31 @@ export const SchemaPreviewDialog: React.FC<SchemaPreviewDialogProps> = ({
               {/* Schema Table */}
               <div>
                 <h3 className="text-lg font-medium mb-3">Column Types</h3>
-                <ScrollArea className="h-60 border rounded-md">
-                  <Table>
+                <ScrollArea className="h-96 border rounded-md">
+                  <Table className="text-xs">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Column Name</TableHead>
-                        <TableHead>Detected Type</TableHead>
-                        <TableHead>Selected Type</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead className="h-10 px-3">Column Name</TableHead>
+                        <TableHead className="h-10 px-3">Detected Type</TableHead>
+                        <TableHead className="h-10 px-3">Selected Type</TableHead>
+                        <TableHead className="h-10 px-3">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {columnStates.map((state, index) => (
                         <TableRow key={state.column.column_name}>
-                          <TableCell className="font-medium">
+                          <TableCell className="p-2 font-medium">
                             {state.column.column_name}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="p-2 text-muted-foreground">
                             {state.column.column_type}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="p-2">
                             <Select 
                               value={state.selectedType}
                               onValueChange={(value) => handleTypeChange(state.column.column_name, value)}
                             >
-                              <SelectTrigger className="w-32">
+                              <SelectTrigger className="w-36 h-8 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -237,7 +237,7 @@ export const SchemaPreviewDialog: React.FC<SchemaPreviewDialogProps> = ({
                               </SelectContent>
                             </Select>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="p-2">
                             {state.isModified && (
                               <div className="flex items-center gap-2">
                                 <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
@@ -265,12 +265,12 @@ export const SchemaPreviewDialog: React.FC<SchemaPreviewDialogProps> = ({
               {schemaData.sampleData && schemaData.sampleData.length > 0 && (
                 <div>
                   <h3 className="text-lg font-medium mb-3">Sample Data</h3>
-                  <ScrollArea className="h-60 border rounded-md">
-                    <Table>
+                  <ScrollArea className="h-96 border rounded-md">
+                    <Table className="text-xs">
                       <TableHeader>
                         <TableRow>
                           {columnStates.map(state => (
-                            <TableHead key={state.column.column_name}>
+                            <TableHead key={state.column.column_name} className="h-10 px-3">
                               {state.column.column_name}
                             </TableHead>
                           ))}
@@ -282,7 +282,7 @@ export const SchemaPreviewDialog: React.FC<SchemaPreviewDialogProps> = ({
                             {columnStates.map(state => (
                               <TableCell 
                                 key={state.column.column_name} 
-                                className="text-sm max-w-32 truncate"
+                                className="p-2 text-xs max-w-32 truncate"
                                 title={String(row[state.column.column_name] || '')}
                               >
                                 {row[state.column.column_name] === null || row[state.column.column_name] === undefined
