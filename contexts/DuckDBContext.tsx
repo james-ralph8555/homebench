@@ -14,6 +14,7 @@ interface DuckDBContextType {
   hasWriteAccess: boolean;
   initializationStage: 'not_started' | 'loading' | 'ready' | 'error';
   isReady: boolean;
+  lastCommitTime: Date | null;
   multiTabStatus?: {
     initialized: boolean;
     role?: 'leader' | 'client';
@@ -43,6 +44,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
   const [initializationStage, setInitializationStage] = useState<'not_started' | 'loading' | 'ready' | 'error'>('not_started');
   const [multiTabStatus, setMultiTabStatus] = useState<DuckDBContextType['multiTabStatus']>({ initialized: false });
+  const [lastCommitTime, setLastCommitTime] = useState<Date | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -78,6 +80,11 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         const { registerWriteCallbacks, checkDatabaseRecovery } = await import('@/lib/durableOperations');
         registerWriteCallbacks({
           onSavingChange: setSaving,
+          onCommitSuccess: (timestamp: Date) => {
+            if (isMountedRef.current) {
+              setLastCommitTime(timestamp);
+            }
+          },
           onRecoveryNotification: (message: string, type: 'info' | 'warning') => {
             // Show toast notification for recovery
             const { toast } = require('@/hooks/use-toast');
@@ -179,6 +186,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     hasWriteAccess, 
     initializationStage,
     isReady,
+    lastCommitTime,
     multiTabStatus 
   };
 

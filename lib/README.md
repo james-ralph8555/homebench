@@ -32,7 +32,7 @@ Core browser engine, persistence, and utilities for HomeBench. These modules int
 
 - Durable write with UI feedback and retries:
   - `import { executeDurableWrite, registerWriteCallbacks } from '@/lib/durableOperations'`
-  - Register callbacks once: `registerWriteCallbacks({ onSavingChange, onRecoveryNotification })`
+  - Register callbacks once: `registerWriteCallbacks({ onSavingChange, onRecoveryNotification, onCommitSuccess })`
   - `await executeDurableWrite('CREATE TABLE t AS SELECT ...')`
 
 - Create table from uploaded file:
@@ -147,7 +147,7 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 ## API Reference (Selected)
 
 - `durableOperations`
-  - `registerWriteCallbacks({ onSavingChange, onRecoveryNotification })`: Wire UI spinners/toasts.
+  - `registerWriteCallbacks({ onSavingChange, onRecoveryNotification, onCommitSuccess })`: Wire UI spinners/toasts and receive a timestamp after successful commits.
   - `executeReadQuery(sql, params?)`: Runs read via multi‑tab path, returns Arrow Table.
   - `executeStreamingReadQuery(sql, params?, { format='arrow', chunkRows?, onArrowChunk?, onJsonChunk? })`: Streams results.
   - `executeDurableWrite(sql, params?, { description?, retryAttempts? })`: Health check + recovery + checkpoint + retries.

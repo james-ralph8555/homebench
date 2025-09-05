@@ -20,7 +20,8 @@ graph TD
     CollapsibleSidebar --> SchemaExplorer
     CollapsibleSidebar --> SavedQueries
     TabbedWorkbench -.-> SettingsModal
-    TabbedWorkbench --> MemoryUsageBar
+    TabbedWorkbench --> InstrumentPanel
+    InstrumentPanel --> MemoryUsageBar
     Visualization --> PlotlyChart
     Visualization --> ChartConfigSidebar
     Visualization --> ChartExportButton
@@ -48,7 +49,8 @@ graph TD
 - `SchemaExplorer`: Browses database schema and cached metadata.
 - `SavedQueries`: Lists and manages saved queries (Dexie/IndexedDB).
 - `SettingsModal`: Theme, OPFS visibility, downloads, and data management.
-- `MemoryUsageBar`: Displays memory usage and environment details.
+- `InstrumentPanel`: Fixed bottom status bar showing OPFS/DB status, lock ownership/controls (multi‑tab), saving state, last commit time, theme toggle, and a memory tooltip (via `MemoryUsageBar`).
+- `MemoryUsageBar`: Displays memory usage and environment details; used within `InstrumentPanel`.
 - `ExportButton`: Export current results to supported formats.
 - `CollapsibleSidebar`: Reusable collapsible wrapper for side panels.
 - `TabbedSQLEditor`: Manages multiple SQL editor tabs, allowing users to switch between and manage different queries.

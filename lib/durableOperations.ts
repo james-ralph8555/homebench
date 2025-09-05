@@ -20,6 +20,7 @@ export interface ConnectionHealth {
 // UI callback registry for saving indicators
 let savingCallback: ((saving: boolean) => void) | null = null;
 let recoveryCallback: ((message: string, type: 'info' | 'warning') => void) | null = null;
+let commitCallback: ((timestamp: Date) => void) | null = null;
 
 /**
  * Register UI callbacks for write operation feedback and recovery notifications
@@ -27,9 +28,11 @@ let recoveryCallback: ((message: string, type: 'info' | 'warning') => void) | nu
 export function registerWriteCallbacks(callbacks: {
   onSavingChange?: (saving: boolean) => void;
   onRecoveryNotification?: (message: string, type: 'info' | 'warning') => void;
+  onCommitSuccess?: (timestamp: Date) => void;
 }) {
   savingCallback = callbacks.onSavingChange || null;
   recoveryCallback = callbacks.onRecoveryNotification || null;
+  commitCallback = callbacks.onCommitSuccess || null;
 }
 
 /**
@@ -272,6 +275,12 @@ export const executeDurableWrite = async (
 
           const duration = performance.now() - startTime;
           console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
+          
+          // Notify about successful commit
+          if (commitCallback) {
+            commitCallback(new Date());
+          }
+          
           return { success: true, duration };
         } catch (error: any) {
           lastError = error;
@@ -330,6 +339,12 @@ export const executeDurableWrite = async (
 
         const duration = performance.now() - startTime;
         console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
+        
+        // Notify about successful commit
+        if (commitCallback) {
+          commitCallback(new Date());
+        }
+        
         return { success: true, duration };
       } catch (error: any) {
         lastError = error;

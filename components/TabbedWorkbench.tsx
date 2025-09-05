@@ -14,6 +14,7 @@ import { addQueryToHistory } from '@/lib/queryStore';
 import { usePersistence } from '@/hooks/usePersistence';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
+import { InstrumentPanel } from './InstrumentPanel';
 
 // Dynamic imports for heavy components - loaded only when needed
 const FileUploader = dynamic(() => import('./FileUploader').then(mod => ({ default: mod.FileUploader })), {
@@ -563,6 +564,12 @@ export const TabbedWorkbench: React.FC = () => {
           />
         </Suspense>
       )}
+      
+      {/* Instrument Panel */}
+      <InstrumentPanel 
+        theme={theme}
+        onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+      />
     </div>
   );
 };
