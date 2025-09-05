@@ -83,26 +83,12 @@ export const TabbedWorkbench: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<string>('');
   const [autoLoaded, setAutoLoaded] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    const stored = localStorage.getItem('theme');
-    return stored === 'dark' ? 'dark' : stored === 'light' ? 'light' : 'dark';
-  });
-  const [showMemoryBar, setShowMemoryBar] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem('showMemoryBar');
-    return stored === 'true';
-  });
-  const [useWebGL, setUseWebGL] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem('useWebGL');
-    return stored === 'false' ? false : true; // Default to true, only false if explicitly set
-  });
-  const [chartRowLimit, setChartRowLimit] = useState<number>(() => {
-    if (typeof window === 'undefined') return 10000;
-    const stored = localStorage.getItem('chartRowLimit');
-    return stored ? parseInt(stored, 10) : 10000;
-  });
+  // Default values that are the same on server and client to avoid hydration mismatches
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [showMemoryBar, setShowMemoryBar] = useState<boolean>(false);
+  const [useWebGL, setUseWebGL] = useState<boolean>(true);
+  const [chartRowLimit, setChartRowLimit] = useState<number>(10000);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [vizState, setVizState] = useState<{
     selectedTable?: string;
     chartConfig?: any;
@@ -118,25 +104,49 @@ export const TabbedWorkbench: React.FC = () => {
     setSaveQueryCallback(() => cb);
   }, []);
 
+  // Load persisted settings on mount (client only) to prevent SSR/CSR mismatches
   React.useEffect(() => {
+    try {
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        setTheme(storedTheme);
+      }
+      const storedShowMemoryBar = localStorage.getItem('showMemoryBar');
+      if (storedShowMemoryBar === 'true') setShowMemoryBar(true);
+      const storedUseWebGL = localStorage.getItem('useWebGL');
+      if (storedUseWebGL === 'false') setUseWebGL(false);
+      const storedChartRowLimit = localStorage.getItem('chartRowLimit');
+      if (storedChartRowLimit) {
+        const n = parseInt(storedChartRowLimit, 10);
+        if (!Number.isNaN(n)) setChartRowLimit(n);
+      }
+    } catch {}
+    setSettingsHydrated(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!settingsHydrated) return;
     const root = typeof document !== 'undefined' ? document.documentElement : null;
     if (!root) return;
     if (theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
     try { localStorage.setItem('theme', theme); } catch {}
-  }, [theme]);
+  }, [theme, settingsHydrated]);
 
   React.useEffect(() => {
+    if (!settingsHydrated) return;
     try { localStorage.setItem('showMemoryBar', String(showMemoryBar)); } catch {}
-  }, [showMemoryBar]);
+  }, [showMemoryBar, settingsHydrated]);
 
   React.useEffect(() => {
+    if (!settingsHydrated) return;
     try { localStorage.setItem('useWebGL', String(useWebGL)); } catch {}
-  }, [useWebGL]);
+  }, [useWebGL, settingsHydrated]);
 
   React.useEffect(() => {
+    if (!settingsHydrated) return;
     try { localStorage.setItem('chartRowLimit', String(chartRowLimit)); } catch {}
-  }, [chartRowLimit]);
+  }, [chartRowLimit, settingsHydrated]);
 
   // Auto-load session on component mount
   React.useEffect(() => {
