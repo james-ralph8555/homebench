@@ -92,7 +92,10 @@ sequenceDiagram
 
   UI->>Ops: executeDurableWrite(sql, [], {description})
   Note over UI: Shows saving indicator
-  Ops->>DB: BEGIN TRANSACTION; query(sql); COMMIT; CHECKPOINT;
+  Ops->>DB: BEGIN TRANSACTION
+  Ops->>DB: query(sql)
+  Ops->>DB: COMMIT
+  Ops->>DB: CHECKPOINT
   DB-->>OPFS: persist changes (with native WAL)
   Ops-->>UI: success/error + hide saving indicator
   Note over UI: Shows success toast or retry on failure
