@@ -29,7 +29,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   onColumnSelect,
   refreshTrigger 
 }) => {
-  const { db, isReady, initializationStage } = useDuckDB();
+  const { db, isReady, initializationStage, multiTabStatus } = useDuckDB();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [views, setViews] = useState<TableInfo[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -38,9 +38,12 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [schemaCache, setSchemaCache] = useState<Map<string, { tables: TableInfo[], views: TableInfo[], timestamp: number }>>(new Map());
 
+  // Consider client tabs connected to the leader as query-ready
+  const canQuery = initializationStage === 'ready' && (isReady || !!multiTabStatus?.isConnected || multiTabStatus?.role === 'leader');
+
   const loadSchema = useCallback(async () => {
-    // Don't load schema if database isn't ready
-    if (!isReady) {
+    // Don't load schema if database isn't ready to accept queries
+    if (!canQuery) {
       setTables([]);
       setViews([]);
       setIsLoading(false);
@@ -164,7 +167,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [isReady, schemaCache]);
+  }, [canQuery, schemaCache]);
 
   useEffect(() => {
     loadSchema();
@@ -276,7 +279,7 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
   ), [handleTableClick, handleColumnClick, getTypeIcon]);
 
   // Show database initialization status
-  if (!isReady) {
+  if (!canQuery) {
     return (
       <div className="flex items-center justify-center p-4">
         {initializationStage === 'loading' ? (
@@ -286,6 +289,8 @@ export const SchemaExplorer: React.FC<SchemaExplorerProps> = ({
           </>
         ) : initializationStage === 'error' ? (
           <span className="text-sm text-red-600 dark:text-red-400">Database failed to load</span>
+        ) : (multiTabStatus?.role === 'client' && !multiTabStatus?.isConnected) ? (
+          <span className="text-sm text-gray-500 dark:text-gray-400">Connecting to leader...</span>
         ) : (
           <span className="text-sm text-gray-500 dark:text-gray-400">Database not ready</span>
         )}

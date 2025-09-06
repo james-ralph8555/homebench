@@ -175,7 +175,10 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   };
 
   // Computed property to determine if the database is ready for use
-  const isReady = initializationStage === 'ready' && db !== null;
+  // Leader tabs have a direct DB handle (db !== null). Client tabs do not,
+  // but are considered ready when connected to the leader via multi‑tab.
+  const isReady =
+    initializationStage === 'ready' && (db !== null || !!multiTabStatus?.isConnected);
 
   const value = { 
     db, 
