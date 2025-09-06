@@ -106,19 +106,27 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
       '&': {
         fontSize: '14px',
       },
+      '.cm-editor': {
+        minHeight: '18em',
+      },
       '.cm-content': {
-        padding: '12px',
-        minHeight: '200px',
+        padding: '8px 0px',
+        // Ensure at least 12 lines visible by default (12 * 1.5em = 18em)
+        minHeight: '18em',
         lineHeight: '1.5', // Better readability
       },
       '.cm-focused': {
         outline: 'none',
       },
-      '.cm-editor': {
-        borderRadius: '8px',
-      },
       '.cm-scroller': {
         fontFamily: 'var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+        minHeight: '18em',
+      },
+      '.cm-placeholder': {
+        whiteSpace: 'pre',
+        opacity: 0.35,
+        fontFamily: 'var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+        pointerEvents: 'none',
       },
     }),
     // Performance: Disable some features for large queries
@@ -133,15 +141,32 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
     debouncedOnChange(val);
   }, [onChange, debouncedOnChange]);
 
+  // Multiline ASCII + mission statement placeholder shown when editor empty
+  const HB_ASCII = String.raw`Upload some data to get started!
+
+888    888                             888                             888      
+888    888                             888                             888      
+888    888                             888                             888      
+8888888888 .d88b. 88888b.d88b.  .d88b. 88888b.  .d88b. 88888b.  .d8888b88888b.  
+888    888d88""88b888 "888 "88bd8P  Y8b888 "88bd8P  Y8b888 "88bd88P"   888 "88b 
+888    888888  888888  888  88888888888888  88888888888888  888888     888  888 
+888    888Y88..88P888  888  888Y8b.    888 d88PY8b.    888  888Y88b.   888  888 
+888    888 "Y88P" 888  888  888 "Y8888 88888P"  "Y8888 888  888 "Y8888P888  888 
+
+Privacy-by-Design SQL Workbench.
+`;
+
   return (
-    <div className={`stable-container border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden ${className}`} style={{ ...style, minHeight: style.height || '244px' }}>
+    <div className={`stable-container no-layout-contain overflow-hidden ${className}`} style={{ ...style, minHeight: style.height || 'calc(18em + 44px)' }}>
       <CodeMirror
         value={value}
-        height={style.height ? `${parseInt(style.height.toString()) - 44}px` : "200px"}
+        // Default to 12 lines worth of height; if explicit height provided, subtract container padding/borders
+        height={style.height ? `${parseInt(style.height.toString()) - 44}px` : '18em'}
+        minHeight={'18em'}
         extensions={extensions}
         onChange={handleChange}
         theme={oneDark}
-        placeholder="-- Write your SQL query here. Example: SELECT * FROM your_table_name LIMIT 10;"
+        placeholder={HB_ASCII}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,

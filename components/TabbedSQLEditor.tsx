@@ -28,7 +28,7 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
   ]);
   const [activeTab, setActiveTab] = useState<string>('1');
   const [nextTabId, setNextTabId] = useState(2);
-  const [height, setHeight] = useState(300);
+  const [height, setHeight] = useState(360);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number>(0);
@@ -175,7 +175,7 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
 
         {tabs.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="mt-0">
-            <div className="relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+            <div className="relative overflow-hidden rounded-none">
               <SQLEditor
                 value={currentTab?.content || ''}
                 onChange={handleTabContentChange}

@@ -1,14 +1,12 @@
 'use client';
 
 import React, { useState, useCallback, Suspense } from 'react';
-import Image from 'next/image';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { CollapsibleSidebar } from './CollapsibleSidebar';
-import { MemoryUsageBar } from './MemoryUsageBar';
-import { GearIcon, TriangleIcon, InfoIcon } from './icons';
+import { GearIcon, TriangleIcon } from './icons';
 import { Table as ArrowTable } from 'apache-arrow';
-import { markTableAsUserCreated } from '@/lib/tableMetadataStore';
 import { executeDurableWrite, executeReadQuery } from '@/lib/durableOperations';
 import { addQueryToHistory } from '@/lib/queryStore';
 import { usePersistence } from '@/hooks/usePersistence';
@@ -67,7 +65,7 @@ type TabType = 'upload' | 'query' | 'visualization';
 export const TabbedWorkbench: React.FC = () => {
   const { db, isLoading, error: dbError, isSaving, hasWriteAccess, initializationStage, loadingProgress, isReady, multiTabStatus } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
-  const [activeTab, setActiveTab] = useState<TabType>('upload');
+  const [activeTab, setActiveTab] = useState<TabType>('query');
   const [sql, setSql] = useState<string>('');
   const [results, setResults] = useState<ArrowTable | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -274,82 +272,25 @@ export const TabbedWorkbench: React.FC = () => {
   const dbStatus = getDatabaseStatusMessage();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto px-4 py-6">
-        {/* Header */}
-        <header className="mb-6">
-          <div className="space-y-2">
-            {/* Top row: logo + title on left, controls on right (stays a row on mobile) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Image 
-                  src="/logo.webp" 
-                  alt="HomeBench logo" 
-                  width={64} 
-                  height={64} 
-                  className="rounded aspect-logo" 
-                  priority
-                  placeholder="blur"
-                  blurDataURL="data:image/webp;base64,UklGRjoAAABXRUJQVlA4WAoAAAAQAAAADwAABwAAQUxQSDIAAAARL0AmbZurmr57yyIiqE8oiG0bejIYEQTgqiDA9vqnsUSI6H+oAERp2HZ65qP/VIAWAFZQOCBCAAAA8AEAnQEqEAAIAAVAfCWkAALp8sF8rgRgAP7o9FDvMCkMde9PK7euH5M1m6VWoDXf2FkP3BqV0ZYbO6NA/VFIAAAA"
-                />
-                <h1 className="text-2xl sm:text-3xl font-bold">HomeBench</h1>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="stable-container">
-                  {showMemoryBar && <MemoryUsageBar />}
-                </div>
-                <Button
-                  onClick={() => setShowSettings(true)}
-                  variant="ghost"
-                  className="p-3"
-                  title="Settings"
-                  aria-label="Open settings"
-                >
-                  <GearIcon size={30} className="w-7 h-7 sm:w-8 sm:h-8" />
-                </Button>
-              </div>
-            </div>
-            {/* Tagline under the row on all sizes */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                <span>Privacy-by-Design SQL Workbench</span>
-                <div className="relative group">
-                  <InfoIcon 
-                    size={14} 
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors" 
-                  />
-                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    HomeBench processes all your data locally in your browser.<br />Nothing is ever sent to our servers.
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900 dark:border-b-gray-700"></div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Database Status Indicator */}
-              {dbStatus && (
-                <div className={`flex items-center space-x-2 text-sm ${
-                  dbStatus.type === 'error' ? 'text-red-600 dark:text-red-400' :
-                  'text-blue-600 dark:text-blue-400'
-                }`}>
-                  {dbStatus.type === 'loading' && (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                  )}
-                  <span>{dbStatus.message}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Tabs */}
+    <div className="w-full min-h-svh overflow-x-hidden overflow-y-auto bg-background text-foreground">
+      <div className="min-h-0 h-full">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
-          <div className="mb-6">
-            <TabsList>
-              <TabsTrigger value="upload">Data Upload</TabsTrigger>
-              <TabsTrigger value="query">Query Editor</TabsTrigger>
-              <TabsTrigger value="visualization">Visualization</TabsTrigger>
-            </TabsList>
-          </div>
+          {/* Top bar: logo + tabs on left, settings on right */}
+          <header className="border-b border-border h-12 flex items-center justify-between px-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <Image src="/logo.webp" alt="HomeBench logo" width={24} height={24} className="rounded" />
+              <TabsList className="bg-transparent p-0 rounded-none">
+                <TabsTrigger value="upload" className="rounded-none">Data Upload</TabsTrigger>
+                <TabsTrigger value="query" className="rounded-none">Query Editor</TabsTrigger>
+                <TabsTrigger value="visualization" className="rounded-none">Visualization</TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setShowSettings(true)} variant="ghost" className="p-2" title="Settings" aria-label="Open settings">
+                <GearIcon size={22} className="w-6 h-6" />
+              </Button>
+            </div>
+          </header>
 
           {/* Tab Content */}
           <TabsContent value="upload">
@@ -381,7 +322,7 @@ export const TabbedWorkbench: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="query">
-          <div className={`grid gap-6 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-4'}`}>
+          <div className={`grid gap-0 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-4'}`}>
             {/* Sidebar */}
             {!isSidebarCollapsed && (
               <div className="xl:col-span-1">

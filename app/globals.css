@@ -11,9 +11,19 @@
   .stable-container {
     contain: layout style paint;
   }
+  /*
+    Some interactive widgets (e.g., CodeMirror) measure parent layout to size
+    themselves. Full layout containment can cause them to mis-measure and
+    collapse in certain environments (notably mobile after dynamic reconfig).
+    Apply this class alongside .stable-container to opt-out of layout
+    containment while keeping paint containment to preserve performance.
+  */
+  .no-layout-contain {
+    contain: paint;
+  }
   
   .stable-skeleton-editor {
-    min-height: 244px; /* SQLEditor actual height: 200px content + 44px border/padding */
+    min-height: 360px; /* Matches TabbedSQLEditor default container height for no CLS */
     background: rgb(229 231 235 / 0.6);
     border-radius: 0.5rem;
   }

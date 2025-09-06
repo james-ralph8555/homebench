@@ -113,7 +113,7 @@ Location: `components/SQLEditor.tsx` (client component)
 - SQL setup: `@codemirror/lang-sql` with `upperCaseKeywords: true` and `defaultSchema: 'main'`; line wrapping enabled.
 - Theme and fonts: `@codemirror/theme-one-dark` with editor theming for 14px mono (`--font-jetbrains-mono`) and comfortable padding/line‑height.
 - Basic features: Line numbers, fold gutter, bracket matching, close brackets, and autocompletion enabled; drop cursor disabled; selection match highlight disabled for performance.
-- UX defaults: 200px height with a helpful placeholder; container uses rounded borders and dark‑mode aware border colors.
+- UX defaults: ~12 lines tall (≈252px) with a helpful placeholder; container reserves extra space to prevent layout shifts.
 
 Notes
 
