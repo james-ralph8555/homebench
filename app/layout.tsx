@@ -32,6 +32,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {/* Preload critical WASM assets for faster loading */}
+        <link rel="preload" href="/duckdb/1.29.1-dev269.0/duckdb-eh.wasm" as="fetch" type="application/wasm" crossOrigin="anonymous" />
+        <link rel="preload" href="/duckdb/1.29.1-dev269.0/duckdb-browser-eh.worker.js" as="script" crossOrigin="anonymous" />
+        
+        {/* Prefetch compressed versions for browsers that support them */}
+        <link rel="prefetch" href="/duckdb/1.29.1-dev269.0/duckdb-eh.wasm.br" as="fetch" type="application/wasm" />
+        <link rel="prefetch" href="/duckdb/1.29.1-dev269.0/duckdb-eh.wasm.gz" as="fetch" type="application/wasm" />
+      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans pb-10`}>
         <DuckDBProvider>
           {children}

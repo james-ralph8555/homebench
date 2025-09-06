@@ -79,10 +79,10 @@ export function isOpfsSupported(): boolean {
 // =============================================================================
 
 /**
- * Gets the appropriate DuckDB WASM bundle for browser usage.
+ * Gets the appropriate DuckDB WASM bundle for browser usage with streaming support.
  * 
- * Uses public URLs to DuckDB assets instead of bundling them through webpack
- * for better build performance and faster development.
+ * Uses public URLs to DuckDB assets and implements streaming compilation
+ * for better performance on large WASM files.
  * 
  * @param {DatabaseOptions} options - Configuration options (currently unused)
  * @returns {Promise<duckdb.DuckDBBundle>} Bundle configuration for DuckDB
@@ -107,6 +107,57 @@ async function getDuckDbBundle(options: DatabaseOptions = {}): Promise<duckdb.Du
   const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
   console.log('Selected DuckDB bundle:', bundle);
   return bundle;
+}
+
+/**
+ * Pre-compile WASM module using streaming compilation for better performance.
+ * This overlaps network transfer and compilation to reduce total loading time.
+ * 
+ * @param wasmUrl - URL to the WASM file
+ * @param retries - Number of retry attempts for failed downloads
+ * @returns Promise<WebAssembly.Module> - Compiled WASM module
+ */
+async function precompileWasmModule(wasmUrl: string, retries: number = 3): Promise<WebAssembly.Module | null> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      console.log(`🔄 Precompiling WASM module (attempt ${attempt + 1}/${retries}):`, wasmUrl);
+      
+      // Check if streaming compilation is supported
+      if (typeof WebAssembly.compileStreaming === 'function') {
+        console.log('✓ Using WebAssembly.compileStreaming for optimal performance');
+        const response = fetch(wasmUrl);
+        const wasmModule = await WebAssembly.compileStreaming(response);
+        console.log('✓ WASM module compiled successfully via streaming');
+        return wasmModule;
+      } else {
+        // Fallback to traditional compilation
+        console.log('⚠️ Using fallback WASM compilation (streaming not supported)');
+        const response = await fetch(wasmUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const wasmModule = await WebAssembly.compile(arrayBuffer);
+        console.log('✓ WASM module compiled successfully via fallback');
+        return wasmModule;
+      }
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`❌ WASM compilation attempt ${attempt + 1} failed:`, error);
+      
+      // Exponential backoff for retries
+      if (attempt < retries - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s delays
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  console.error('❌ All WASM compilation attempts failed:', lastError);
+  return null; // Return null instead of throwing to allow graceful fallback
 }
 
 /**
@@ -140,17 +191,30 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
       const worker = new Worker(bundle.mainWorker!);
       const logger = new duckdb.ConsoleLogger();
       const dbInstance = new duckdb.AsyncDuckDB(logger, worker);
+      
+      // DuckDB-WASM handles streaming compilation internally when we pass the URL
       await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      
       return dbInstance;
     };
 
-    // Step 3: Create initial database instance
+    // Step 3: Trigger precompilation for browser caching (runs in background)
+    // This helps with subsequent page loads by warming the browser cache
+    try {
+      precompileWasmModule(bundle.mainModule!).catch(error => {
+        console.warn('WASM precompilation failed (background process):', error);
+      });
+    } catch (error) {
+      console.warn('Failed to start WASM precompilation:', error);
+    }
+
+    // Step 4: Create initial database instance
     let db = await createDatabaseInstance();
     console.log('DuckDB instantiated');
 
     // DuckDB WASM will handle OPFS registration automatically when opening with opfs:// path
     
-    // Step 4: Attempt to open database with OPFS or fallback
+    // Step 5: Attempt to open database with OPFS or fallback
     let actuallyUsingOpfs = opfsSupported;
     const dbPath = options.databasePath || 'opfs://homebench.db';
     

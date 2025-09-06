@@ -65,7 +65,7 @@ const Visualization = dynamic(() => import('./Visualization').then(mod => ({ def
 type TabType = 'upload' | 'query' | 'visualization';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, initializationStage, isReady, multiTabStatus } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, initializationStage, loadingProgress, isReady, multiTabStatus } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const [sql, setSql] = useState<string>('');
@@ -262,7 +262,9 @@ export const TabbedWorkbench: React.FC = () => {
     if (initializationStage === 'loading') {
       return {
         type: 'loading' as const,
-        message: 'Loading database engine...'
+        message: loadingProgress?.message || 'Loading database engine...',
+        progress: loadingProgress?.progress,
+        stage: loadingProgress?.stage
       };
     }
     // Don't show "ready" status - it's implied when features work
@@ -493,7 +495,15 @@ export const TabbedWorkbench: React.FC = () => {
                               Running...
                             </span>
                           ) : !isReady && initializationStage === 'loading' ? (
-                            'Loading Database...'
+                            <span className="flex items-center">
+                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                              {loadingProgress?.message || 'Loading Database...'}
+                              {loadingProgress?.progress && (
+                                <span className="ml-2 text-xs opacity-75">
+                                  {loadingProgress.progress}%
+                                </span>
+                              )}
+                            </span>
                           ) : (
                             'Run Query'
                           )}

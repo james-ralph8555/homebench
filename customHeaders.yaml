@@ -1,0 +1,67 @@
+headers:
+  # Long-lived caching for static assets (immutable)
+  - pattern: '**/*.js'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+      - key: Vary
+        value: Accept-Encoding
+  - pattern: '**/*.css'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+      - key: Vary
+        value: Accept-Encoding
+  - pattern: '**/*.wasm'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+      - key: Vary
+        value: Accept-Encoding
+  - pattern: '**/*.{png,jpg,jpeg,gif,svg,webp,avif,ico}'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+  - pattern: '**/*.{woff,woff2,ttf,otf,eot}'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+
+  # Next.js static chunks and assets
+  - pattern: '_next/static/*'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=31536000, immutable
+
+  # HTML and documents: no CDN/browser caching
+  - pattern: '**/*.html'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=0, s-maxage=0, must-revalidate
+
+  # App shell docs and manifests: prefer validation
+  - pattern: '**/manifest*.json'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=0, s-maxage=0, must-revalidate
+  - pattern: '**/robots.txt'
+    headers:
+      - key: Cache-Control
+        value: public, max-age=0, s-maxage=0, must-revalidate
+
+  # Service worker should not be cached aggressively
+  - pattern: '**/service-worker.js'
+    headers:
+      - key: Cache-Control
+        value: no-cache, no-store, must-revalidate
+      - key: Pragma
+        value: no-cache
+      - key: Expires
+        value: '0'
+
+  # APIs or dynamic proxy paths: disable caching at edge by default
+  - pattern: 'api/*'
+    headers:
+      - key: Cache-Control
+        value: no-store
+

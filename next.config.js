@@ -15,6 +15,11 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: false,
+  // Note: Headers for caching optimization must be configured at the CDN level
+  // (CloudFlare/CloudFront) since this is a static export build.
+  // Recommended headers for WASM files:
+  // - Cache-Control: public, max-age=31536000, immutable
+  // - Vary: Accept-Encoding
   experimental: {
     // Enable package import optimizations for better tree-shaking
     optimizePackageImports: ['@uiw/react-codemirror', 'ag-grid-community', 'apache-arrow'],
@@ -22,6 +27,41 @@ const nextConfig = {
     optimizeServerReact: true,
   },
   webpack: (config, { dev, isServer }) => {
+    // Enable WASM support with proper MIME types and compression
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    });
+
+    // Enable Brotli and Gzip compression for WASM files
+    if (!dev && !isServer) {
+      const CompressionPlugin = require('compression-webpack-plugin');
+      
+      config.plugins.push(
+        // Brotli compression for better compression ratio
+        new CompressionPlugin({
+          filename: '[path][base].br',
+          algorithm: 'brotliCompress',
+          test: /\.(js|css|html|svg|wasm)$/,
+          compressionOptions: {
+            level: 11,
+          },
+          threshold: 10240,
+          minRatio: 0.8,
+          deleteOriginalAssets: false,
+        }),
+        // Gzip compression as fallback
+        new CompressionPlugin({
+          filename: '[path][base].gz',
+          algorithm: 'gzip',
+          test: /\.(js|css|html|svg|wasm)$/,
+          threshold: 10240,
+          minRatio: 0.8,
+          deleteOriginalAssets: false,
+        })
+      );
+    }
+
     // Ignore Node.js specific modules
     config.resolve.fallback = {
       ...config.resolve.fallback,
