@@ -33,7 +33,7 @@ const nextConfig = {
       type: 'webassembly/async',
     });
 
-    // Enable Brotli and Gzip compression for WASM files
+    // Enable Brotli and Gzip compression for bundled assets (webpack handles DuckDB via copy script)
     if (!dev && !isServer) {
       const CompressionPlugin = require('compression-webpack-plugin');
       
@@ -42,7 +42,7 @@ const nextConfig = {
         new CompressionPlugin({
           filename: '[path][base].br',
           algorithm: 'brotliCompress',
-          test: /\.(js|css|html|svg|wasm)$/,
+          test: /\.(js|css|html|svg)$/,  // Removed wasm - handled by copy script
           compressionOptions: {
             level: 11,
           },
@@ -54,7 +54,7 @@ const nextConfig = {
         new CompressionPlugin({
           filename: '[path][base].gz',
           algorithm: 'gzip',
-          test: /\.(js|css|html|svg|wasm)$/,
+          test: /\.(js|css|html|svg)$/,  // Removed wasm - handled by copy script
           threshold: 10240,
           minRatio: 0.8,
           deleteOriginalAssets: false,
