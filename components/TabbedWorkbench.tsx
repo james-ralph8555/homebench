@@ -380,7 +380,7 @@ export const TabbedWorkbench: React.FC = () => {
           <TabsContent value="query">
           <div className={`grid gap-0 ${isSidebarCollapsed ? 'grid-cols-1 xl:grid-cols-[2.5rem_1fr]' : 'grid-cols-1 xl:grid-cols-[320px_1fr]'}`}>
             {/* Sidebar (collapsible to a slim rail) */}
-            <div className="bg-muted/30 border-r border-border">
+            <div className="bg-muted/30 border-r xl:border-r border-b xl:border-b-0 border-border">
               {isSidebarCollapsed ? (
                 <aside className="w-full h-10 xl:h-full">
                   <Button
