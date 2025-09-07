@@ -216,6 +216,11 @@ export const TabbedWorkbench: React.FC = () => {
         const duration = performance.now() - startTime;
         setQueryMetrics({ duration });
         
+        // Check if the write operation failed and throw the error to display it in UI
+        if (!result.success && result.error) {
+          throw new Error(result.error);
+        }
+        
         // Trigger schema refresh for DDL operations
         if (upperSql.startsWith('CREATE') || upperSql.startsWith('DROP') || upperSql.startsWith('ALTER')) {
           setSchemaRefreshTrigger(prev => prev + 1);

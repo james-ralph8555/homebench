@@ -283,8 +283,12 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
               logger.warn('WAL recovery failed, falling back to in-memory database:', recoveryError);
               throw recoveryError; // This will trigger the fallback below
             }
+          } else if (walError.message?.includes('Table with name') && walError.message?.includes('already exists')) {
+            // This is a regular catalog error that should be displayed to the user
+            // Don't try to recover - just let it bubble up to the UI
+            throw walError;
           } else {
-            // Re-throw non-WAL errors
+            // Re-throw all other non-WAL errors
             throw walError;
           }
         }
