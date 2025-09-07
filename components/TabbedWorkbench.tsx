@@ -357,71 +357,76 @@ export const TabbedWorkbench: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="query">
-          <div className={`grid gap-0 ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-4'}`}>
-            {/* Sidebar */}
-            {!isSidebarCollapsed && (
-              <div className="xl:col-span-1">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-end mb-4">
-                    <button
+          <div className={`grid gap-0 ${isSidebarCollapsed ? 'grid-cols-1 xl:grid-cols-[2.5rem_1fr]' : 'grid-cols-1 xl:grid-cols-[320px_1fr]'}`}>
+            {/* Sidebar (collapsible to a slim rail) */}
+            <div className="bg-muted/30 border-r border-border">
+              {isSidebarCollapsed ? (
+                <aside className="w-full h-10 xl:h-full">
+                  <Button
+                    onClick={() => setIsSidebarCollapsed(false)}
+                    variant="ghost"
+                    className="w-full h-full rounded-none flex items-center justify-center xl:items-start xl:justify-center xl:pt-1 xl:px-0 xl:py-0 xl:gap-0 xl:shrink-0 hover:bg-muted/40"
+                    title="Expand sidebar"
+                    aria-label="Expand sidebar"
+                  >
+                    <TriangleIcon className="transition-transform duration-200" />
+                  </Button>
+                </aside>
+              ) : (
+                <aside className="pt-1 pb-3 px-3 xl:p-3">
+                  <div className="flex items-center justify-end mb-0 xl:mb-2">
+                    <Button
                       onClick={() => setIsSidebarCollapsed(true)}
-                      className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      variant="ghost"
+                      size="icon"
                       title="Collapse sidebar"
                       aria-label="Collapse sidebar"
                     >
                       <TriangleIcon className="transition-transform duration-200 rotate-180" />
-                    </button>
+                    </Button>
                   </div>
-                  
-                  <CollapsibleSidebar title="Schema" defaultExpanded={true}>
-                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
-                      <SchemaExplorer 
-                        onTableSelect={insertTableName}
-                        onColumnSelect={insertColumnName}
-                        refreshTrigger={schemaRefreshTrigger}
-                      />
-                    </Suspense>
-                  </CollapsibleSidebar>
 
-                  <CollapsibleSidebar title="Saved Queries" defaultExpanded={true}>
-                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
-                      <SavedQueries 
-                        onQuerySelect={setSql} 
-                        currentQuery={sql} 
-                        onSaveCallbackChange={handleSaveQueryCallbackChange}
-                      />
-                    </Suspense>
-                  </CollapsibleSidebar>
-                  <CollapsibleSidebar title="Recent Queries" defaultExpanded={false}>
-                    <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
-                      <RecentQueries 
-                        onQuerySelect={setSql} 
-                      />
-                    </Suspense>
-                  </CollapsibleSidebar>
+                  <div className="space-y-4">
+                    <CollapsibleSidebar title="Schema" defaultExpanded={true}>
+                      <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
+                        <SchemaExplorer 
+                          onTableSelect={insertTableName}
+                          onColumnSelect={insertColumnName}
+                          refreshTrigger={schemaRefreshTrigger}
+                        />
+                      </Suspense>
+                    </CollapsibleSidebar>
 
-                </div>
-              </div>
-            )}
+                    <CollapsibleSidebar title="Saved Queries" defaultExpanded={true}>
+                      <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
+                        <SavedQueries 
+                          onQuerySelect={setSql} 
+                          currentQuery={sql} 
+                          onSaveCallbackChange={handleSaveQueryCallbackChange}
+                        />
+                      </Suspense>
+                    </CollapsibleSidebar>
+
+                    <CollapsibleSidebar title="Recent Queries" defaultExpanded={false}>
+                      <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
+                        <RecentQueries 
+                          onQuerySelect={setSql} 
+                        />
+                      </Suspense>
+                    </CollapsibleSidebar>
+                  </div>
+                </aside>
+              )}
+            </div>
 
             {/* Main Content */}
-            <div className={isSidebarCollapsed ? 'col-span-1' : 'xl:col-span-3'}>
+            <div className={"col-span-1 xl:col-start-2"}>
               <div className="space-y-6">
                 {/* SQL Editor */}
                 <div>
                   <div ref={toolbarContainerRef} className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 space-y-2 sm:space-y-0">
                     <div ref={toolbarLeftRef} className="flex items-center space-x-3">
                       <h3 className="text-lg font-semibold">SQL Editor</h3>
-                      {isSidebarCollapsed && (
-                        <button
-                          onClick={() => setIsSidebarCollapsed(false)}
-                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                          title="Expand sidebar"
-                          aria-label="Expand sidebar"
-                        >
-                          <TriangleIcon className="transition-transform duration-200" />
-                        </button>
-                      )}
                     </div>
                     <div ref={toolbarRightRef} className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                       <div className="text-sm stable-status-container">
