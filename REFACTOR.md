@@ -23,16 +23,6 @@ High‑Impact Performance
   - Action: Single source of truth (e.g., export `DUCKDB_VERSION` from a small `lib/duckdbVersion.ts`, and use it in both the copy script and layout via env or import). Alternatively, inject as `process.env.NEXT_PUBLIC_DUCKDB_VERSION` during build.
   - Files: app/layout.tsx, scripts/copy-duckdb.js
 
-Maintainability & Type Safety
-- Reduce use of `any` and widen explicit types.
-  - Findings: Many APIs expose `any`: `lib/durableOperations.ts` (params/returns), `lib/plotlyTransform.ts` (trace creators), `lib/exportUtils.ts` (db, buffer), `contexts/DuckDBContext.tsx` (progress stage, tab status), `lib/multitab/client.ts` and `leader.ts`.
-  - Action: Define small interfaces/types for:
-    - Query params: `unknown[]` or `Primitive[]` union
-    - Export results: success/error union
-    - Plotly traces: Partial<PlotData> with typed inputs
-    - Multi‑tab messages: already partially typed in `lib/multitab/types.ts`; propagate usage across client/leader instead of `any`.
-  - Files: lib/durableOperations.ts, lib/plotlyTransform.ts, lib/exportUtils.ts, contexts/DuckDBContext.tsx, lib/multitab/*.ts
-
 - Unify loading state in DuckDB context.
   - Why: `contexts/DuckDBContext.tsx` has both `isLoading` and `initializationStage` with overlapping meaning; also mixes `loadingProgress` as a separate nullable object.
   - Action: Replace with a single discriminated union state: `{ stage: 'idle'|'loading'|'ready'|'error', progress?: {..} }`; derive `isReady` from stage + role once, not on each render.
