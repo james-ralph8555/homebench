@@ -271,6 +271,41 @@ export const TabbedWorkbench: React.FC = () => {
 
   const dbStatus = getDatabaseStatusMessage();
 
+  // Detect if the SQL Editor instrumentation (status + buttons) overflows available width.
+  const toolbarContainerRef = React.useRef<HTMLDivElement>(null);
+  const toolbarRightRef = React.useRef<HTMLDivElement>(null);
+  const toolbarLeftRef = React.useRef<HTMLDivElement>(null);
+  const [isToolbarOverflowing, setIsToolbarOverflowing] = React.useState(false);
+
+  React.useEffect(() => {
+    const measure = () => {
+      const container = toolbarContainerRef.current;
+      const right = toolbarRightRef.current;
+      const left = toolbarLeftRef.current;
+      if (!container || !right || !left) return;
+
+      // Available width for right side = container width - left width - gap
+      const containerWidth = container.clientWidth;
+      const leftWidth = left.clientWidth;
+      const gap = 16; // approximate spacing between left/right
+      const available = Math.max(0, containerWidth - leftWidth - gap);
+      const needed = right.scrollWidth; // intrinsic width of right content
+
+      // Also consider vertical stack when base layout is column
+      const isColumn = getComputedStyle(container).flexDirection === 'column';
+
+      setIsToolbarOverflowing(isColumn || needed > available);
+    };
+
+    const ro = new ResizeObserver(measure);
+    if (toolbarContainerRef.current) ro.observe(toolbarContainerRef.current);
+    if (toolbarRightRef.current) ro.observe(toolbarRightRef.current);
+    if (toolbarLeftRef.current) ro.observe(toolbarLeftRef.current);
+    // Initial measure
+    measure();
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className="w-full min-h-svh overflow-x-hidden overflow-y-auto bg-background text-foreground">
       <div className="min-h-0 h-full">
@@ -374,8 +409,8 @@ export const TabbedWorkbench: React.FC = () => {
               <div className="space-y-6">
                 {/* SQL Editor */}
                 <div>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 space-y-2 sm:space-y-0">
-                    <div className="flex items-center space-x-3">
+                  <div ref={toolbarContainerRef} className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 space-y-2 sm:space-y-0">
+                    <div ref={toolbarLeftRef} className="flex items-center space-x-3">
                       <h3 className="text-lg font-semibold">SQL Editor</h3>
                       {isSidebarCollapsed && (
                         <button
@@ -388,7 +423,7 @@ export const TabbedWorkbench: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                    <div ref={toolbarRightRef} className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                       <div className="text-sm stable-status-container">
                         {restoreMessage ? (
                           <span className="text-blue-600 dark:text-blue-400">{restoreMessage}</span>
@@ -465,7 +500,7 @@ export const TabbedWorkbench: React.FC = () => {
                     </div>
                   </div>
                   <Suspense fallback={<div className="animate-pulse stable-skeleton-editor" />}>
-                    <TabbedSQLEditor value={sql} onChange={setSql} />
+                    <TabbedSQLEditor value={sql} onChange={setSql} useMobilePlaceholder={isToolbarOverflowing} />
                   </Suspense>
                 </div>
 

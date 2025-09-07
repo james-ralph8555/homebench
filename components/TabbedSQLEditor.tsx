@@ -16,12 +16,14 @@ interface TabbedSQLEditorProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  useMobilePlaceholder?: boolean;
 }
 
 export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
   value,
   onChange,
-  className = ''
+  className = '',
+  useMobilePlaceholder
 }) => {
   const [tabs, setTabs] = useState<SQLTab[]>([
     { id: '1', label: 'Query 1', content: value }
@@ -180,6 +182,7 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
                 value={currentTab?.content || ''}
                 onChange={handleTabContentChange}
                 style={{ height: `${height}px` }}
+                useMobilePlaceholder={useMobilePlaceholder}
               />
               {/* Resize handle */}
               <div

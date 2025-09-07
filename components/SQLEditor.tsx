@@ -15,17 +15,21 @@ interface SQLEditorProps {
   onChange: (value: string) => void;
   className?: string;
   style?: React.CSSProperties;
+  // When true, force the compact/mobile placeholder
+  useMobilePlaceholder?: boolean;
 }
 
 export const SQLEditor: React.FC<SQLEditorProps> = ({ 
   value, 
   onChange, 
   className = '',
-  style = {}
+  style = {},
+  useMobilePlaceholder
 }) => {
   const { db } = useDuckDB();
   const [cmSchema, setCmSchema] = useState<Record<string, string[]>>({});
   const [schemaCache, setSchemaCache] = useState<Map<string, { data: Record<string, string[]>, timestamp: number }>>(new Map());
+  const [isMobile, setIsMobile] = useState(false);
   // Debounce onChange to reduce re-renders during typing
   const debouncedOnChange = useMemo(
     () => debounce(onChange, 150),
@@ -141,17 +145,47 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
   // Multiline ASCII + mission statement placeholder shown when editor empty
   const HB_ASCII = String.raw`Upload some data to get started!
 
-888    888                             888                             888      
-888    888                             888                             888      
-888    888                             888                             888      
-8888888888 .d88b. 88888b.d88b.  .d88b. 88888b.  .d88b. 88888b.  .d8888b88888b.  
-888    888d88""88b888 "888 "88bd8P  Y8b888 "88bd8P  Y8b888 "88bd88P"   888 "88b 
-888    888888  888888  888  88888888888888  88888888888888  888888     888  888 
-888    888Y88..88P888  888  888Y8b.    888 d88PY8b.    888  888Y88b.   888  888 
-888    888 "Y88P" 888  888  888 "Y8888 88888P"  "Y8888 888  888 "Y8888P888  888 
+           .7J~.           888    888                             888                             888      
+     JGG~..::~YGP7.        888    888                             888                             888      
+    .G#BBBGPJ^  :JGGJ^     888    888                             888                             888      
+ :?PBBBBBGG5Y?7~:. .7PGY~. 8888888888 .d88b. 88888b.d88b.  .d88b. 88888b.  .d88b. 88888b.  .d8888b88888b.  
+7P?: .YG5YJYY?5Y?7~:. .~Y! 888    888d88""88b888 "888 "88bd8P  Y8b888 "88bd8P  Y8b888 "88bd88P"   888 "88b 
+   JJ ^J5GP5?7J5GGJ!!^.    888    888888  888888  888  88888888888888  88888888888888  888888     888  888 
+  .GP ^JJ5P5Y7Y5P5?!!~^    888    888Y88..88P888  888  888Y8b.    888 d88PY8b.    888  888Y88b.   888  888 
+  .GP .7!!!7J7J7!!~!~^^    888    888 "Y88P" 888  888  888 "Y8888 88888P"  "Y8888 888  888 "Y8888P888  888 
+   PG!::::::.:~!~~~~~^^    
+    ^!~~~^^^. ........     Privacy-by-Design SQL Workbench.
+`;
+
+  const HB_ASCII_MOBILE = String.raw`Upload some data to get started!
+
+           .7J~.           
+     JGG~..::~YGP7.        
+    .G#BBBGPJ^  :JGGJ^     
+ :?PBBBBBGG5Y?7~:. .7PGY~. 
+7P?: .YG5YJYY?5Y?7~:. .~Y! 
+   JJ ^J5GP5?7J5GGJ!!^.    
+  .GP ^JJ5P5Y7Y5P5?!!~^    
+  .GP .7!!!7J7J7!!~!~^^    
+   PG!::::::.:~!~~~~~^^   
+    ^!~~~^^^. ........    
+
+|_| _  _ _  _ |_  _  _  _|_ 
+| |(_)| | |(/_|_)(/_| |(_| |
 
 Privacy-by-Design SQL Workbench.
 `;
+
+  // Detect mobile viewport to switch placeholder (used only as a fallback
+  // when `useMobilePlaceholder` prop isn't provided)
+  useEffect(() => {
+    if (useMobilePlaceholder !== undefined) return; // controlled externally
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null;
+    const update = () => setIsMobile(!!mq && mq.matches);
+    update();
+    mq?.addEventListener('change', update);
+    return () => mq?.removeEventListener('change', update);
+  }, [useMobilePlaceholder]);
 
   return (
     <div className={`stable-container no-layout-contain overflow-hidden ${className}`} style={{ ...style, minHeight: style.height || 'calc(18em + 44px)' }}>
@@ -163,7 +197,7 @@ Privacy-by-Design SQL Workbench.
         theme={oneDark}
         extensions={extensions}
         onChange={handleChange}
-        placeholder={HB_ASCII}
+        placeholder={(useMobilePlaceholder ?? isMobile) ? HB_ASCII_MOBILE : HB_ASCII}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,
