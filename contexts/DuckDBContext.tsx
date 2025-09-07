@@ -89,15 +89,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         // Check if database is using OPFS (persistent) or fell back to in-memory
         const hasWrite = dbState.isOpfsSupported;
         
-        if (tabStatus.initialized) {
-          if ((tabStatus as any).role === 'leader') {
-            console.log('✓ Database initialized as LEADER with OPFS persistence');
-          } else {
-            console.log('✓ Database initialized as CLIENT - connected to leader');
-          }
-        } else {
-          console.log('✓ Database initialized in legacy mode');
-        }
+        // Initialization succeeded; role and mode available in tabStatus
         
         // Register saving callback with durableOperations
         const { registerWriteCallbacks, checkDatabaseRecovery } = await import('@/lib/durableOperations');
@@ -108,18 +100,15 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
               setLastCommitTime(timestamp);
             }
           },
-          onRecoveryNotification: (message: string, type: 'info' | 'warning') => {
-            // Replaced toast notification with console message
-            const prefix = type === 'warning' ? '[Recovery warning]' : '[Recovery info]';
-            // eslint-disable-next-line no-console
-            console[type === 'warning' ? 'warn' : 'info'](`${prefix} ${message}`);
+          onRecoveryNotification: (_message: string) => {
+            // Suppress console output for recovery notifications
           }
         });
         
         // Check for database recovery after initialization
         // Delay slightly to ensure database is fully ready
         setTimeout(() => {
-          checkDatabaseRecovery().catch(console.warn);
+          checkDatabaseRecovery().catch(() => {});
         }, 1000);
         
         updateProgress('complete', 'Database ready!', 100);
@@ -132,10 +121,10 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
           setIsLoading(false);
           setInitializationStage('ready');
           setLoadingProgress(null); // Clear progress when ready
-          console.log('✓ Database context initialized');
+          // Database context initialized
         }
       } catch (e: any) {
-        console.error("Failed to initialize DuckDB:", e);
+        // Suppress console error; surface via context state only
         if (isMountedRef.current) {
           setError(e);
           setIsLoading(false);
@@ -173,7 +162,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
           setMultiTabStatus(tabStatus as any);
         }
       } catch (error) {
-        console.warn('Failed to update multi-tab status:', error);
+        // Suppress status update errors in console
       }
     };
 

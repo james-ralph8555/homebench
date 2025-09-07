@@ -27,7 +27,7 @@ export const usePersistence = () => {
       await loadSessionImpl(db);
       return true;
     } catch (error) {
-      console.error('Failed to load session:', error);
+      // Swallow console noise; propagate to caller for UI handling
       throw error;
     } finally {
       setIsLoading(false);
@@ -41,7 +41,7 @@ export const usePersistence = () => {
       setLastSaved(null);
       return true;
     } catch (error) {
-      console.error('Failed to delete session:', error);
+      // Swallow console noise; propagate to caller for UI handling
       throw error;
     } finally {
       setIsDeleting(false);
@@ -79,4 +79,3 @@ export const usePersistence = () => {
     isSupported: isOpfsSupported(),
   };
 };
-

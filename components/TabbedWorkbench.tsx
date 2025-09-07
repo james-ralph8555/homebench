@@ -183,7 +183,7 @@ export const TabbedWorkbench: React.FC = () => {
           setTimeout(() => setRestoreMessage(''), 5000);
         }
       } catch (error: any) {
-        console.warn('Failed to auto-load session:', error);
+        // Swallow auto-load errors silently; UI remains usable
       }
     };
 
@@ -234,10 +234,9 @@ export const TabbedWorkbench: React.FC = () => {
       try {
         await addQueryToHistory(trimmedSql);
       } catch (historyError) {
-        console.warn('Failed to add query to history:', historyError);
+        // Ignore history persistence errors silently
       }
     } catch (e: any) {
-      console.error('Query execution failed:', e);
       // Ensure we surface a useful error string to the UI
       const msg = (e && typeof e === 'object' && 'message' in e) ? (e as any).message : String(e);
       setError(msg);
