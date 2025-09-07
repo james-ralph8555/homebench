@@ -311,7 +311,7 @@ export const TabbedWorkbench: React.FC = () => {
       <div className="min-h-0 h-full">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
           {/* Top bar: logo + tabs on left, settings on right */}
-          <header className="border-b border-border h-12 flex items-center justify-between px-0">
+          <header className="border-b border-border h-12 flex items-center justify-between px-4">
             <div className="flex items-center gap-3 min-w-0">
               <Image src="/logo.webp" alt="HomeBench logo" width={24} height={24} className="rounded" />
               <TabsList className="bg-transparent p-0 rounded-none">
@@ -329,7 +329,7 @@ export const TabbedWorkbench: React.FC = () => {
 
           {/* Tab Content */}
           <TabsContent value="upload">
-            <div className="space-y-6">
+            <div className="space-y-6 px-6">
               {/* Upload Section */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Upload Data</h3>
@@ -421,7 +421,7 @@ export const TabbedWorkbench: React.FC = () => {
 
             {/* Main Content */}
             <div className={"col-span-1 xl:col-start-2"}>
-              <div className="space-y-6">
+              <div className="space-y-6 px-6">
                 {/* SQL Editor */}
                 <div>
                   <div ref={toolbarContainerRef} className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 space-y-2 sm:space-y-0">

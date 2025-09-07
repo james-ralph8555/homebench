@@ -228,7 +228,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
       </div>
       
       <div className="flex">
-        <div className="flex-grow space-y-6">
+        <div className="flex-grow space-y-6 px-6">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
               <div>
