@@ -149,6 +149,14 @@ For detailed technical specifications, see the individual component and library 
 
 - Database write capability corrupted: If you see an error like “Database write capability corrupted…”, first refresh the page and retry. If it persists, open Settings → Storage and use “Clear OPFS data”, then reload the app and re‑import your files. This clears the local database files stored in your browser.
 
+## Known Issues
+
+- Tab bar horizontal overflow on desktop: On large/desktop viewports, the SQL tab strip can expand beyond the right edge instead of showing an internal horizontal scrollbar. This pushes tabs off-screen. Mobile and medium widths behave correctly.
+  - Status: Open.
+  - Scope: Affects `components/TabbedSQLEditor.tsx` and the tab bar container.
+  - Workarounds: Reduce the browser width slightly; use trackpad or Shift+MouseWheel to scroll horizontally over the tab strip; temporarily close unused tabs.
+  - Dev notes: The issue appears tied to flex container min-width and overflow interplay at larger breakpoints. The intended structure is a scroll container (`overflow-x-auto`, `min-w-0`, `flex-1`) that contains a `TabsList` sized to content (`w-max`, `whitespace-nowrap`). Ancestor containers may require `min-w-0` to allow shrinking. See `TabbedSQLEditor` around the tab bar for class names and future fixes.
+
 ## Development
 
 ### Project Structure
