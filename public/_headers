@@ -1,0 +1,28 @@
+/*
+  Cache-Control: public, max-age=0, s-maxage=0, must-revalidate
+
+/duckdb/*/*.wasm
+  Cache-Control: public, max-age=31536000, immutable
+  Vary: Accept-Encoding
+
+/duckdb/*/*.js
+  Cache-Control: public, max-age=31536000, immutable
+  Vary: Accept-Encoding
+
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+  Vary: Accept-Encoding
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
+  Vary: Accept-Encoding
+
+/*.(png|jpg|jpeg|gif|svg|webp|avif|ico)
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.(woff|woff2|ttf|otf|eot)
+  Cache-Control: public, max-age=31536000, immutable
+
