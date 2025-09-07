@@ -40,10 +40,19 @@ Core browser engine, persistence, and utilities for HomeBench. These modules int
   - `createTableFromFile(name, fileName, ext)` or
   - `createTableFromFileWithSchema(name, fileName, ext, columns, typeOverrides)`
 
+- Supported file types for imports: `csv`, `parquet`, `json`, `jsonl`, `ndjson`, `xlsx`.
+
 - OPFS utilities:
   - `downloadSavedSessionAsDuckDB()`; `getDatabaseFileSize()`; `listOpfsFiles()`; `wipeOpfsData()`
 
 Tip: Prefer the `durableOperations` API from UI components. `DuckDBManager` handles multi‑tab boot and role detection automatically.
+
+## Excel Import/Export
+
+- Import: Uses DuckDB's native `read_xlsx('<file>', header=true)` under the hood when `ext === 'xlsx'`.
+  - Available via `createTableFromFile(...)` and `createTableFromFileWithSchema(...)` with `ext = 'xlsx'`.
+  - Schema detection hooks in `schemaDetection.ts` also support `.xlsx` for preview and type overrides.
+- Export: Excel export is planned for future implementation. Currently supports CSV/Parquet/JSON formats.
 
 ## Storage and Indexes
 
@@ -125,7 +134,7 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 
 - Privacy‑by‑design: Implemented. All work is in‑browser; no server calls in app code.
 - DuckDB‑WASM: Implemented. Web Worker bundle selected at runtime and instantiated.
-- Rich data support: Implemented for CSV/Parquet/JSON via `read_*` helpers.
+- Rich data support: Implemented for CSV/Parquet/JSON/XLSX via `read_*` helpers (including `read_xlsx`).
 - Export formats: Implemented for CSV/Parquet/JSON using `COPY (...) TO` and browser download.
 - Schema Explorer: Implemented with parallel info loading and a short cache (~5s).
 - Query auto‑optimization: Implemented (auto LIMIT injection + basic hints panel).

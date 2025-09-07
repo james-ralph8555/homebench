@@ -19,7 +19,7 @@
 
 ## Usage
 
-1. Upload data: CSV, Parquet, or JSON from your computer
+1. Upload data: CSV, Parquet, JSON, or Excel (.xlsx) from your computer
 2. Write SQL: Use the built-in editor with hints
 3. Run query: Execute locally in your browser (DuckDB‑WASM)
 4. View results: Explore in a fast, virtualized grid
@@ -38,7 +38,7 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 
 - **Privacy by design**: All data stays on your device; nothing is sent to a server
 - **High-performance analytics**: Run SQL over millions of rows at interactive speeds using DuckDB-WASM
-- **Multiple data formats**: Import and join CSV, Parquet, and JSON files using standard SQL
+- **Multiple data formats**: Import and join CSV, Parquet, JSON, and Excel (.xlsx)
 - **Persistent sessions**: Full database snapshots saved to Origin Private File System (OPFS)
 - **Multi-tab support**: Single-writer lock mechanism enables concurrent multi-tab usage
 - **Virtualized results grid**: AG Grid with row/column virtualization for smooth performance on large datasets
@@ -46,114 +46,21 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - **Interactive schema explorer**: Database schema browser with caching for quick navigation
 - **Data export**: Export query results in CSV, Parquet, and JSON formats
 - **Visualization**: Generate charts from query results using Plotly.js
+- **Refined UI**: shadcn/ui-based interface with inline schema preview, polished menus, and consolidated panels
 - **Zero setup**: Static site generation for serverless hosting - just open and start querying
 
-## Roadmap (P06 — HomeBench)
+## Roadmap
 
-Status legend: [Done], [Partial], [Planned]
-
-### High-Impact Improvements (Priority)
-
-#### Robust Import Pipeline & Schema Handling: [Partial]
-- **Current**: Inline pre‑import schema preview with editable type overrides, sample rows, and cancel
-  - Files are registered to DuckDB via `registerFileHandle` (BROWSER_FILEREADER) and read using `read_csv_auto`/`read_parquet`/`read_json_auto`.
-  - Schema detection uses `DESCRIBE SELECT * FROM read_*` plus a limited sample read; optional row count for small/Parquet files.
-  - Supported types: CSV, Parquet, JSON/JSONL/NDJSON; JSON reads use `maximum_object_size = 104857600` (100MB) safeguard.
-  - Upload is leader‑only in multi‑tab mode; UI enforces this and provides guidance.
-  - Guards include a 4GB file size check (WASM limit) and sanitized table names.
-- **Implemented**: Durable table creation and safe fallbacks
-- `CREATE OR REPLACE TABLE ... AS SELECT * FROM read_*` with connection health validation, automatic recovery for write‑mode corruption, and a `CHECKPOINT` to persist changes; retries handle transient locks.
-  - Custom type overrides are applied via generated `SELECT` with per‑column casts; if casting fails, importer falls back to auto‑detected types.
-  - Post‑import cast warnings are surfaced by checking per‑column NULL counts for overridden columns.
-  - File→table provenance recorded in IndexedDB (`tableMetadataStore`).
-- **Missing**: Advanced parse controls and robustness polish
-  - Column renames; CSV parse options (delimiter/quote/escape/header), date/time format hints; per‑column null/trim rules.
-  - Multi‑file/partitioned imports, progress for very large ingests, and mid‑ingest cancellation.
-  - XLSX support (tracked separately below).
-- **Impact**: Clearer, safer imports with type control; graceful fallback reduces dead‑ends on bad conversions.
-
-#### Persistent "Saving" Indicator & Write Durability: [Done] 
-- **Current**: Real-time saving indicator connected to all write operations with automatic retry logic
-- **Implemented**: Pre‑write connection health checks, automatic recovery attempts for write‑mode corruption, `CHECKPOINT` after writes, and recovery notifications on startup. Leverages DuckDB's native WAL for crash recovery.
-- **Impact**: Clearer errors and fewer dead‑ends; users see real-time write feedback and are notified when sessions are recovered after crashes
-
-#### Excel Import/Export Support: [Planned]
-- **Current**: CSV, Parquet, JSON support
-- **Missing**: .xlsx import and export capabilities
-- **Impact**: Expands usefulness to broader audience without manual format conversion
-
-#### External Data Connectors: [Planned]
-- **Current**: Local file upload only
-- **Missing**: HTTP(S) data source support, URL-based CSV/Parquet loading, optional caching
-- **Impact**: Enables analysis of remote datasets without manual download steps
-
-### Quick Wins
-- Virtualized data grid for previews (>50k rows feel instant); sticky headers + column filters: [Done]
-  - Results grid uses AG Grid with virtualization and column filters; preview table uses sticky headers (first 100 rows).
-
-### Reliability (big one) 
-- Single‑writer across tabs: leader election + `navigator.locks`; readers unblocked: [Done]
-  - Multi‑tab system implements leader election, heartbeats, and serialized writes; reads are concurrent.
-- Durable write operations with crash recovery ("Session restored with N tables"): [Done]
-  - Uses DuckDB's native WAL system for automatic crash recovery; no custom WAL needed.
-  - Real-time UI feedback for write operations with retry logic for transient failures.
-  - Recovery notifications inform users when previous sessions are restored.
-
-### Power Features
-- EXPLAIN/EXPLAIN ANALYZE pane (plan text + JSON profile): [Done]
-- Snippets & notebook cells with markdown; export `.duckdb` + `.homebench` bundle: [Planned]
-- UDFs (JS/WASM) for lightweight transforms; per‑session sandbox: [Planned]
-- Data connectors: http(s) CSV/Parquet via httpfs + OPFS caching toggle (“pin file locally”): [Planned]
-- Shareable read‑only workspace: export zip with OPFS files + `workspace.json`: [Planned]
-
-### Performance Optimizations
-- **Lazy-load DuckDB engine**: Load only when query editor first mounts to reduce initial load time: [Planned]
-  - Current: DB initializes in the root layout provider
-- **Streaming result sets**: Move heavy work to dedicated Worker with back-pressure control: [Partial]
-  - DuckDB runs in Web Worker; multi-tab streaming (Arrow/JSON) exists; UI still uses non-streaming reads by default
-- **Smart resource management**: Pre-warm OPFS + WASM on idle to hide first-query costs: [Planned]
-- **Memory optimization**: Real-time memory usage monitoring with automatic cleanup: [Done]
-- **Results grid batching**: Incremental row building in the grid (2k batches, capped to 100k displayed rows) to keep UI responsive: [Done]
-
-### Success Metrics
-- Track time‑to‑first‑query, failed‑write rate, and % sessions with successful import→query→export: [Planned]
-
-## Planned Features
-
-### Data Integration & Import
-- **Excel import/export**: Full .xlsx support for broader compatibility
-- **Remote data sources**: HTTP(S) CSV/Parquet loading with URL-based ingestion
-- **Cloud storage connectors**: AWS S3, Google Cloud Storage integration
-- **Session import**: Load existing .duckdb files to restore previous work
-- **Advanced file handling**: Support for compressed files (gzip, brotli)
-- **Schema validation**: Pre-import data type validation and suggestion
-
-### Query & Analysis Features  
-- **Advanced SQL editor**: Full DuckDB syntax support with autocomplete and validation
-- **Query performance analysis**: EXPLAIN/EXPLAIN ANALYZE with plan text and JSON profile parsing
-- **Saved queries & snippets**: Query library with categorization and search
-- **Notebook-style cells**: Markdown cells mixed with SQL for documentation
-- **Custom functions**: User-defined functions (UDFs) in JavaScript/WASM
-- **Query optimization hints**: Automatic suggestions for performance improvements
-
-### Collaboration & Sharing
-- **Shareable workspaces**: Export workspace as zip with OPFS files + metadata
-- **Read-only sharing**: Generate shareable links to query results and visualizations
-- **Session export/import**: Bundle complete workspace state for collaboration
-- **Public dataset catalog**: Curated collection of example datasets
-
-### Visualization & Reporting
-- **Advanced charting**: Enhanced chart types beyond basic Plotly.js integration  
-- **Dashboard builder**: Multi-chart dashboards with interactive filters
-- **Data profiling**: Automatic data quality assessment and statistics
-- **Export formats**: Extended export options including Excel, PDF reports
-
-### Performance & Reliability
-- **Multi-threading**: Leverage WebAssembly threading when stable
-- **Write-ahead logging**: Completed - Uses DuckDB's native WAL with automatic crash recovery and UI feedback
-- **Durable write operations**: Completed - All writes use transactions with retry logic and real-time user feedback
-- **Background sync**: Periodic backup to cloud storage (optional)
-- **Performance benchmarking**: Built-in dataset and query performance testing
+- **Excel export**: Export query results to Excel/XLSX format
+- External data connectors: HTTP(S) CSV/Parquet with optional caching
+- Advanced import controls: CSV options, date/time hints, multi-file/partitioned ingest, progress + cancel
+- Streaming results by default in UI (Arrow/JSON with back-pressure)
+- Smart resource management: idle pre-warm of OPFS/WASM
+- Shareable workspaces: export zip with OPFS files + metadata
+- Notebook-style cells and snippets; saved query library
+- User-defined functions (JS/WASM) for lightweight transforms
+- Dashboard builder and advanced charting
+- Success metrics for core flows (import → query → export)
 
 ## Quick Start
 
@@ -297,5 +204,3 @@ See `app/README.md` for supported browsers and current limitations.
 
 - DuckDB Documentation: https://duckdb.org/docs/
 - Next.js Documentation: https://nextjs.org/docs
-### UX Behavior Notes
-- During file import, when the inline schema preview is visible, `TabbedWorkbench` temporarily hides the table Data Preview area to keep focus on schema customization.

@@ -35,18 +35,47 @@ export async function exportQueryAsFile(
           copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT PARQUET);`;
           break;
         case 'JSON':
-          copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT JSON);`;
+          copyCommand = `COPY (${cleanQuery}) TO '${tempFileName}' (FORMAT JSON, ARRAY true);`;
           break;
       }
     }
     
-    await connection.query(copyCommand);
+    try {
+      await connection.query(copyCommand);
+    } catch (queryError) {
+      console.error('Failed to execute export query:', queryError);
+      const errorMessage = queryError instanceof Error ? queryError.message : String(queryError);
+      
+      throw new Error(`Export query failed: ${errorMessage}`);
+    }
     
     // Get the file buffer from DuckDB's virtual filesystem
-    const buffer = await db.copyFileToBuffer(tempFileName);
+    let buffer: any;
+    try {
+      buffer = await db.copyFileToBuffer(tempFileName);
+    } catch (bufferError) {
+      console.error('Failed to retrieve export file buffer:', bufferError);
+      throw new Error(`Failed to retrieve exported ${format} file: ${bufferError instanceof Error ? bufferError.message : String(bufferError)}`);
+    }
     
-    // Trigger browser download
-    const blob = new Blob([buffer]);
+    // Validate buffer before proceeding
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error(`Export failed: Generated ${format} file is empty`);
+    }
+    
+    console.log(`Export buffer info: size=${buffer.byteLength} bytes, format=${format}`);
+    
+    // Trigger browser download with appropriate MIME type
+    const getMimeType = (format: ExportFormat) => {
+      switch (format) {
+        case 'CSV': return 'text/csv';
+        case 'JSON': return 'application/json';
+        case 'PARQUET': return 'application/octet-stream';
+        default: return 'application/octet-stream';
+      }
+    };
+
+    const blob = new Blob([buffer], { type: getMimeType(format) });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -57,7 +86,12 @@ export async function exportQueryAsFile(
     URL.revokeObjectURL(url);
 
     // Clean up the temporary file
-    await db.dropFile(tempFileName);
+    try {
+      await db.dropFile(tempFileName);
+    } catch (cleanupError) {
+      // Log but don't fail the export for cleanup errors
+      console.warn('Failed to clean up temporary export file:', tempFileName, cleanupError);
+    }
   } finally {
     await connection.close();
   }
@@ -116,5 +150,6 @@ export function suggestFileName(query: string, format: ExportFormat): string {
   const tableName = tableMatch ? tableMatch[1] : 'query_result';
   
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-  return `${tableName}_${timestamp}.${format.toLowerCase()}`;
+  const extension = format.toLowerCase();
+  return `${tableName}_${timestamp}.${extension}`;
 }

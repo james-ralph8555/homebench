@@ -12,6 +12,12 @@ describe('exportUtils: suggestFileName', () => {
     const name = suggestFileName('SELECT 1', 'JSON');
     expect(name).toMatch(/query_result_.*\.json$/);
   });
+
+  it('handles Parquet format correctly', () => {
+    const name = suggestFileName('SELECT * FROM products', 'PARQUET');
+    expect(name.toLowerCase()).toContain('products');
+    expect(name.endsWith('.parquet')).toBe(true);
+  });
 });
 
 describe('exportUtils: exportQueryAsFile', () => {
@@ -45,6 +51,7 @@ describe('exportUtils: exportQueryAsFile', () => {
     executed.length = 0;
     await exportQueryAsFile(db, 'SELECT 1', 'x.json', 'JSON');
     expect(executed[0].toUpperCase()).toContain('FORMAT JSON');
+    expect(executed[0].toUpperCase()).toContain('ARRAY TRUE');
 
     executed.length = 0;
     await exportQueryAsFile(db, 'SELECT 1', 'x.parquet', 'PARQUET');

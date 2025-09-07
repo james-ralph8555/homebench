@@ -97,6 +97,9 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
         case 'ndjson':
           readFunction = `read_json_auto('${fileName}', maximum_object_size = 104857600)`;
           break;
+        case 'xlsx':
+          readFunction = `read_xlsx('${fileName}', header=true)`;
+          break;
         default:
           throw new Error(`Unsupported file extension: ${fileExtension}`);
       }

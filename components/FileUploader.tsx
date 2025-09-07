@@ -48,8 +48,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
     
     // Validate file type
     const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!['csv', 'parquet', 'json', 'jsonl', 'ndjson'].includes(fileExt)) {
-      setMessage(`Unsupported file type: ${fileExt}. Supported types: CSV, Parquet, JSON`);
+    if (!['csv', 'parquet', 'json', 'jsonl', 'ndjson', 'xlsx'].includes(fileExt)) {
+      setMessage(`Unsupported file type: ${fileExt}. Supported types: CSV, Parquet, JSON, Excel (.xlsx)`);
       return;
     }
 
@@ -260,7 +260,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             ref={fileInputRef}
             type="file"
             onChange={handleFileChange}
-            accept=".csv,.parquet,.json,.jsonl,.ndjson"
+            accept=".csv,.parquet,.json,.jsonl,.ndjson,.xlsx"
             className="hidden"
             disabled={isUploading || !isReady}
           />
@@ -274,7 +274,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
                 {isUploading ? 'Processing file...' : !isReady ? 'Database Loading...' : 'Upload your data file'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {!isReady ? 'Please wait for database to initialize' : 'Drag and drop or click to select CSV, Parquet, or JSON files'}
+                {!isReady ? 'Please wait for database to initialize' : 'Drag and drop or click to select CSV, Parquet, JSON, or Excel files'}
               </p>
             </div>
           </div>

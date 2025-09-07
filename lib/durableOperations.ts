@@ -503,6 +503,9 @@ export const createTableFromFile = async (
     case 'ndjson':
       query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_json_auto('${fileName}', maximum_object_size = 104857600)`;
       break;
+    case 'xlsx':
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_xlsx('${fileName}', header=true)`;
+      break;
     default:
       throw new Error(`Unsupported file extension: ${fileExtension}`);
   }
