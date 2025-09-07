@@ -145,14 +145,14 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
   // Multiline ASCII + mission statement placeholder shown when editor empty
   const HB_ASCII = String.raw`Upload some data to get started!
 
-           .7J~.           888    888                             888                             888      
-     JGG~..::~YGP7.        888    888                             888                             888      
-    .G#BBBGPJ^  :JGGJ^     888    888                             888                             888      
- :?PBBBBBGG5Y?7~:. .7PGY~. 8888888888 .d88b. 88888b.d88b.  .d88b. 88888b.  .d88b. 88888b.  .d8888b88888b.  
-7P?: .YG5YJYY?5Y?7~:. .~Y! 888    888d88""88b888 "888 "88bd8P  Y8b888 "88bd8P  Y8b888 "88bd88P"   888 "88b 
-   JJ ^J5GP5?7J5GGJ!!^.    888    888888  888888  888  88888888888888  88888888888888  888888     888  888 
-  .GP ^JJ5P5Y7Y5P5?!!~^    888    888Y88..88P888  888  888Y8b.    888 d88PY8b.    888  888Y88b.   888  888 
-  .GP .7!!!7J7J7!!~!~^^    888    888 "Y88P" 888  888  888 "Y8888 88888P"  "Y8888 888  888 "Y8888P888  888 
+           .7J~.           888    888                             888888b.                          888      
+     JGG~..::~YGP7.        888    888                             888  "88b                         888      
+    .G#BBBGPJ^  :JGGJ^     888    888                             888  .88P                         888      
+ :?PBBBBBGG5Y?7~:. .7PGY~. 8888888888 .d88b. 88888b.d88b.  .d88b. 8888888K.  .d88b. 88888b.  .d8888b88888b.  
+7P?: .YG5YJYY?5Y?7~:. .~Y! 888    888d88""88b888 "888 "88bd8P  Y8b888  "Y88bd8P  Y8b888 "88bd88P"   888 "88b 
+   JJ ^J5GP5?7J5GGJ!!^.    888    888888  888888  888  88888888888888    88888888888888  888888     888  888 
+  .GP ^JJ5P5Y7Y5P5?!!~^    888    888Y88..88P888  888  888Y8b.    888   d88PY8b.    888  888Y88b.   888  888 
+  .GP .7!!!7J7J7!!~!~^^    888    888 "Y88P" 888  888  888 "Y8888 8888888P"  "Y8888 888  888 "Y8888P888  888 
    PG!::::::.:~!~~~~~^^    
     ^!~~~^^^. ........     Privacy-by-Design SQL Workbench.
 `;
@@ -169,11 +169,13 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
   .GP .7!!!7J7J7!!~!~^^    
    PG!::::::.:~!~~~~~^^   
     ^!~~~^^^. ........    
-
-|_| _  _ _  _ |_  _  _  _|_ 
-| |(_)| | |(/_|_)(/_| |(_| |
-
-Privacy-by-Design SQL Workbench.
+ _  _               ___              _    
+| || |___ _ __  ___| _ ) ___ _ _  __| |_  
+| __ / _ \ '  \/ -_) _ \/ -_) ' \/ _| ' \ 
+|_||_\___/_|_|_\___|___/\___|_||_\__|_||_|
+                                          
+Privacy-by-Design 
+SQL Workbench.
 `;
 
   // Detect mobile viewport to switch placeholder (used only as a fallback

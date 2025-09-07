@@ -12,6 +12,8 @@ import { addQueryToHistory } from '@/lib/queryStore';
 import { usePersistence } from '@/hooks/usePersistence';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/DropdownMenu';
+import { ChevronDown } from 'lucide-react';
 import { InstrumentPanel } from './InstrumentPanel';
 
 // Dynamic imports for heavy components - loaded only when needed
@@ -488,32 +490,53 @@ export const TabbedWorkbench: React.FC = () => {
                         <Button onClick={() => saveQueryCallback?.()} variant="secondary">
                           Save Current
                         </Button>
-                        <Button onClick={executeQuery} disabled={isQuerying || (!isReady && !multiTabStatus?.initialized)}>
-                          {isQuerying ? (
-                            <span className="flex items-center">
-                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                              Running...
-                            </span>
-                          ) : !isReady && initializationStage === 'loading' ? (
-                            <span className="flex items-center">
-                              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                              {loadingProgress?.message || 'Loading Database...'}
-                              {loadingProgress?.progress && (
-                                <span className="ml-2 text-xs opacity-75">
-                                  {loadingProgress.progress}%
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            'Run Query'
-                          )}
-                        </Button>
-                        <Button onClick={() => handleExplain(false)} variant="outline" disabled={!sql.trim()} title="EXPLAIN">
-                          Explain
-                        </Button>
-                        <Button onClick={() => handleExplain(true)} variant="outline" disabled={!sql.trim()} title="EXPLAIN ANALYZE">
-                          Analyze
-                        </Button>
+                        <div className="flex">
+                          <Button 
+                            onClick={executeQuery} 
+                            disabled={isQuerying || (!isReady && !multiTabStatus?.initialized)}
+                            className="rounded-r-none border-r-0"
+                          >
+                            {isQuerying ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                                Running...
+                              </span>
+                            ) : !isReady && initializationStage === 'loading' ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                                {loadingProgress?.message || 'Loading Database...'}
+                                {loadingProgress?.progress && (
+                                  <span className="ml-2 text-xs opacity-75">
+                                    {loadingProgress.progress}%
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              'Run Query'
+                            )}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="default" 
+                                size="icon"
+                                disabled={!sql.trim()}
+                                className="rounded-l-none px-2 min-w-0 w-8"
+                                title="Query options"
+                              >
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleExplain(false)} disabled={!sql.trim()}>
+                                Explain Query
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleExplain(true)} disabled={!sql.trim()}>
+                                Analyze Query
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                         <Suspense fallback={<div className="animate-pulse stable-skeleton-export" />}>
                           <ExportButton 
                             query={sql} 
