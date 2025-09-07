@@ -238,7 +238,9 @@ export const TabbedWorkbench: React.FC = () => {
       }
     } catch (e: any) {
       console.error('Query execution failed:', e);
-      setError(e.message);
+      // Ensure we surface a useful error string to the UI
+      const msg = (e && typeof e === 'object' && 'message' in e) ? (e as any).message : String(e);
+      setError(msg);
     } finally {
       setIsQuerying(false);
     }
@@ -507,16 +509,6 @@ export const TabbedWorkbench: React.FC = () => {
                                 <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
                                 Running...
                               </span>
-                            ) : !isReady && initializationStage === 'loading' ? (
-                              <span className="flex items-center">
-                                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                                {loadingProgress?.message || 'Loading Database...'}
-                                {loadingProgress?.progress && (
-                                  <span className="ml-2 text-xs opacity-75">
-                                    {loadingProgress.progress}%
-                                  </span>
-                                )}
-                              </span>
                             ) : (
                               'Run Query'
                             )}
@@ -568,7 +560,19 @@ export const TabbedWorkbench: React.FC = () => {
                   </Suspense>
                 </div>
 
-                {/* Results directly follow editor to fuse them */}
+                {/* Inline error directly under the editor for visibility */}
+                {error && (
+                  <div className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+                      Query Error
+                    </h4>
+                    <pre className="text-sm text-red-600 dark:text-red-300 whitespace-pre-wrap">
+                      {error}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Results directly follow editor (and error) to keep context tight */}
                 <div>
                   {!showExplain ? (
                     <Suspense fallback={<div className="animate-pulse stable-skeleton-results" />}>
@@ -586,18 +590,6 @@ export const TabbedWorkbench: React.FC = () => {
                     </div>
                   )}
                 </div>
-
-                {/* Error Display (kept, but below results for less disruption) */}
-                {error && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
-                      Query Error
-                    </h4>
-                    <pre className="text-sm text-red-600 dark:text-red-300 whitespace-pre-wrap">
-                      {error}
-                    </pre>
-                  </div>
-                )}
 
                 {/* Performance Hints */}
                 <div className={`stable-hints-container ${queryHints.length > 0 ? 'has-content' : ''}`}>
