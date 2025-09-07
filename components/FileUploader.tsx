@@ -238,19 +238,22 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
     fileInputRef.current?.click();
   };
 
+  const isClientTab = multiTabStatus?.role === 'client';
+  const isDisabled = isUploading || !isReady || isClientTab;
+
   return (
     <>
       <div className="w-full stable-container">
         <div
           className={`
-            border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-            ${isDragOver 
+            border-2 border-dashed rounded-lg p-6 text-center transition-colors
+            ${isDragOver && !isDisabled
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-              : !isReady
+              : isDisabled
               ? 'border-gray-300 dark:border-gray-600 opacity-60'
-              : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'
+              : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer'
             }
-            ${isUploading || !isReady ? 'pointer-events-none opacity-50' : ''}
+            ${isDisabled ? 'pointer-events-none' : ''}
           `}
           style={{ minHeight: '180px' }}
           onDrop={handleDrop}
@@ -264,7 +267,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             onChange={handleFileChange}
             accept=".csv,.parquet,.json,.jsonl,.ndjson,.xlsx"
             className="hidden"
-            disabled={isUploading || !isReady}
+            disabled={isDisabled}
           />
           
           <div className="space-y-3">
@@ -273,10 +276,20 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             </div>
             <div>
               <p className="text-lg font-medium">
-                {isUploading ? 'Processing file...' : !isReady ? 'Database Loading...' : 'Upload your data file'}
+                {isUploading 
+                  ? 'Processing file...' 
+                  : !isReady 
+                  ? 'Database Loading...' 
+                  : isClientTab 
+                  ? 'Upload from main tab' 
+                  : 'Upload your data file'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {!isReady ? 'Please wait for database to initialize' : 'Drag and drop or click to select CSV, Parquet, JSON, or Excel files'}
+                {!isReady 
+                  ? 'Please wait for database to initialize' 
+                  : isClientTab 
+                  ? 'Switch to the main tab to upload files' 
+                  : 'Drag and drop or click to select CSV, Parquet, JSON, or Excel files'}
               </p>
             </div>
           </div>

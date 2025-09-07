@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ChartExporter, ExportFormat, ExportOptions } from '@/lib/chartExportUtils';
 import { ChartConfig } from '@/lib/plotlyTransform';
 import { Table as ArrowTable } from 'apache-arrow';
+import { useDuckDB } from '@/contexts/DuckDBContext';
 
 interface ChartExportButtonProps {
   plotRef: React.RefObject<any>; // Reference to the Plotly plot
@@ -29,6 +30,7 @@ export const ChartExportButton: React.FC<ChartExportButtonProps> = ({
   disabled = false,
   className = ''
 }) => {
+  const { multiTabStatus } = useDuckDB();
   const [exportState, setExportState] = useState<ExportState>({ isExporting: false });
 
   const handleExport = async (format: ExportFormat) => {
@@ -87,6 +89,8 @@ export const ChartExportButton: React.FC<ChartExportButtonProps> = ({
   };
 
   const availableFormats = ChartExporter.getAvailableFormats(config);
+  const isClientTab = multiTabStatus?.role === 'client';
+  const isButtonDisabled = disabled || isClientTab;
 
   // If currently exporting, show loading state
   if (exportState.isExporting) {
@@ -126,14 +130,15 @@ export const ChartExportButton: React.FC<ChartExportButtonProps> = ({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          disabled={disabled}
+          disabled={isButtonDisabled}
           className={className}
+          title={isClientTab ? 'Export from main tab' : undefined}
         >
           <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Export
+          {isClientTab ? 'Export (main tab)' : 'Export'}
           <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>

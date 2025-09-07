@@ -12,7 +12,7 @@ interface ExportButtonProps {
 }
 
 export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) => {
-  const { db } = useDuckDB();
+  const { db, multiTabStatus } = useDuckDB();
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async (format: ExportFormat) => {
@@ -39,19 +39,25 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ query, disabled }) =
     { format: 'JSON', label: 'JSON', description: 'JavaScript Object Notation' },
   ];
 
+  const isClientTab = multiTabStatus?.role === 'client';
+  const isButtonDisabled = disabled || isExporting || !query.trim() || isClientTab;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="secondary"
-          disabled={disabled || isExporting || !query.trim()}
+          disabled={isButtonDisabled}
           className="w-[120px]"
+          title={isClientTab ? 'Export from main tab' : undefined}
         >
           {isExporting ? (
             <span className="inline-flex items-center">
               <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
               Exporting...
             </span>
+          ) : isClientTab ? (
+            'Export (main tab)'
           ) : (
             'Export'
           )}
