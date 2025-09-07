@@ -97,6 +97,16 @@ export const TabbedWorkbench: React.FC = () => {
   const [showExplain, setShowExplain] = useState(false);
   const [explainAnalyze, setExplainAnalyze] = useState(false);
 
+  // Mobile detection for responsive sidebar defaults
+  const [isDesktop, setIsDesktop] = useState(() => {
+    // Initialize with actual window size if available (client-side)
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1280; // xl breakpoint is 1280px
+    }
+    // SSR safe default - assume mobile to prevent unexpected expansion
+    return false;
+  });
+
   // Stable handlers to receive child-provided callbacks without causing effect loops
   const handleSaveQueryCallbackChange = useCallback((cb: () => void) => {
     setSaveQueryCallback(() => cb);
@@ -145,6 +155,15 @@ export const TabbedWorkbench: React.FC = () => {
     if (!settingsHydrated) return;
     try { localStorage.setItem('chartRowLimit', String(chartRowLimit)); } catch {}
   }, [chartRowLimit, settingsHydrated]);
+
+  // Mobile detection for responsive sidebar defaults
+  React.useEffect(() => {
+    const mq = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1280px)') : null; // xl breakpoint is 1280px
+    const update = () => setIsDesktop(!!mq && mq.matches);
+    update();
+    mq?.addEventListener('change', update);
+    return () => mq?.removeEventListener('change', update);
+  }, []);
 
   // Auto-load session on component mount
   React.useEffect(() => {
@@ -365,7 +384,7 @@ export const TabbedWorkbench: React.FC = () => {
                   <Button
                     onClick={() => setIsSidebarCollapsed(false)}
                     variant="ghost"
-                    className="w-full h-full rounded-none flex items-center justify-center xl:items-start xl:justify-center xl:pt-2 xl:px-0 xl:py-0 xl:gap-0 xl:shrink-0 hover:bg-muted/40"
+                    className="w-full h-full rounded-none flex items-center justify-start pl-3 xl:items-start xl:justify-center xl:pt-2 xl:px-0 xl:py-0 xl:gap-0 xl:shrink-0 hover:bg-muted/40"
                     title="Expand sidebar"
                     aria-label="Expand sidebar"
                   >
@@ -387,7 +406,7 @@ export const TabbedWorkbench: React.FC = () => {
                   </div>
 
                   <div className="space-y-4">
-                    <CollapsibleSidebar title="Schema" defaultExpanded={true}>
+                    <CollapsibleSidebar title="Schema" defaultExpanded={isDesktop}>
                       <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
                         <SchemaExplorer 
                           onTableSelect={insertTableName}
@@ -397,7 +416,7 @@ export const TabbedWorkbench: React.FC = () => {
                       </Suspense>
                     </CollapsibleSidebar>
 
-                    <CollapsibleSidebar title="Saved Queries" defaultExpanded={true}>
+                    <CollapsibleSidebar title="Saved Queries" defaultExpanded={isDesktop}>
                       <Suspense fallback={<div className="animate-pulse stable-skeleton-sidebar" />}>
                         <SavedQueries 
                           onQuerySelect={setSql} 
