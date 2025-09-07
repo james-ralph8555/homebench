@@ -365,7 +365,7 @@ export const TabbedWorkbench: React.FC = () => {
                   <Button
                     onClick={() => setIsSidebarCollapsed(false)}
                     variant="ghost"
-                    className="w-full h-full rounded-none flex items-center justify-center xl:items-start xl:justify-center xl:pt-1 xl:px-0 xl:py-0 xl:gap-0 xl:shrink-0 hover:bg-muted/40"
+                    className="w-full h-full rounded-none flex items-center justify-center xl:items-start xl:justify-center xl:pt-2 xl:px-0 xl:py-0 xl:gap-0 xl:shrink-0 hover:bg-muted/40"
                     title="Expand sidebar"
                     aria-label="Expand sidebar"
                   >
@@ -373,7 +373,7 @@ export const TabbedWorkbench: React.FC = () => {
                   </Button>
                 </aside>
               ) : (
-                <aside className="pt-1 pb-3 px-3 xl:p-3">
+                <aside className="pt-1 pb-3 px-3 xl:pt-2 xl:px-3 xl:pb-3">
                   <div className="flex items-center justify-end mb-0 xl:mb-2">
                     <Button
                       onClick={() => setIsSidebarCollapsed(true)}
