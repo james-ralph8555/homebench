@@ -16,6 +16,8 @@ import {
   LeaderCrashError
 } from './types';
 import { logger } from '@/lib/logger';
+import type { QueryParameters } from '@/lib/types';
+import { toErrorMessage } from '@/lib/utils';
 // Note: ArrowTable import will be handled at runtime to avoid bundling issues
 
 // =============================================================================
@@ -250,11 +252,11 @@ export function queryStream(options: StreamQueryOptions): Promise<void> {
  */
 export async function executeQuery(
   sql: string, 
-  args?: any[], 
+  args?: QueryParameters, 
   mode: 'ro' | 'rw' = 'ro'
-): Promise<any> {
+): Promise<unknown> {
   const chunks: ArrayBuffer[] = [];
-  let jsonRows: any[] = [];
+  let jsonRows: unknown[] = [];
   let hasJsonFallback = false;
   
   await queryStream({
@@ -281,17 +283,21 @@ export async function executeQuery(
     
     // Extract column names and data from JSON rows
     const firstRow = jsonRows[0];
-    const columns: { [key: string]: any[] } = {};
+    const columns: { [key: string]: unknown[] } = {};
     
     // Initialize columns
-    for (const key of Object.keys(firstRow)) {
-      columns[key] = [];
+    if (firstRow && typeof firstRow === 'object') {
+      for (const key of Object.keys(firstRow)) {
+        columns[key] = [];
+      }
     }
     
     // Fill columns with data
     for (const row of jsonRows) {
-      for (const key of Object.keys(columns)) {
-        columns[key].push(row[key] ?? null);
+      if (row && typeof row === 'object') {
+        for (const key of Object.keys(columns)) {
+          columns[key].push((row as Record<string, unknown>)[key] ?? null);
+        }
       }
     }
     
@@ -328,10 +334,10 @@ export async function executeQuery(
  */
 export async function executeQueryJson(
   sql: string, 
-  args?: any[], 
+  args?: QueryParameters, 
   mode: 'ro' | 'rw' = 'ro'
-): Promise<any[]> {
-  const allRows: any[] = [];
+): Promise<unknown[]> {
+  const allRows: unknown[] = [];
   
   await queryStream({
     sql,

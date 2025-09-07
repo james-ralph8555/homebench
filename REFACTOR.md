@@ -54,16 +54,6 @@ Maintainability & Type Safety
   - Files: lib/utils.ts (add), propagate usage in components and lib
 
 Dead Code & Redundancy
-- autoSaver.ts appears unused by the app runtime.
-  - Evidence: Only referenced by tests; app paths use `lib/durableOperations.ts` instead.
-  - Action: Either remove file and its tests, or mark as deprecated and fold any missing niceties (min indicator time) into durable writes.
-  - Files: lib/autoSaver.ts, lib/__tests__/autoSaver.test.ts
-
-- multiTabQuery.executeWriteQuery is deprecated wrapper.
-  - Why: It logs a warning and forwards to durable ops; encourages accidental use.
-  - Action: Remove the function and its export; update any consumers (none found beyond docs). Keep `executeQuery`, `executeQueries`, `executeStreamingQuery`.
-  - File: lib/multiTabQuery.ts
-
 - Duplicate AG Grid theme CSS (noted above) and possibly unused icons.
   - Action: Audit `components/icons.tsx` for unused exports; drop dead icons to reduce bundle size.
   - Files: components/icons.tsx (scan for unused exports via IDE or `tsserver` diagnostics)

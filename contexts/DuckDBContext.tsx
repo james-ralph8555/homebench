@@ -3,6 +3,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { getDuckDB } from '@/lib/duckdbManager';
 import * as duckdb from '@duckdb/duckdb-wasm';
+import type { 
+  InitializationStage, 
+  LoadingProgress, 
+  MultiTabStatus, 
+  ProgressCallback
+} from '@/lib/types';
+import { toErrorMessage } from '@/lib/utils';
 
 // Define the shape of the context state
 interface DuckDBContextType {
@@ -14,24 +21,11 @@ interface DuckDBContextType {
   isTyping: boolean;
   setTyping: (typing: boolean) => void;
   hasWriteAccess: boolean;
-  initializationStage: 'not_started' | 'loading' | 'ready' | 'error';
-  loadingProgress: {
-    stage: 'downloading' | 'compiling' | 'instantiating' | 'connecting' | 'complete';
-    message: string;
-    progress?: number; // 0-100 for progress bar
-  } | null;
+  initializationStage: InitializationStage;
+  loadingProgress: LoadingProgress | null;
   isReady: boolean;
   lastCommitTime: Date | null;
-  multiTabStatus?: {
-    initialized: boolean;
-    role?: 'leader' | 'client';
-    isConnected?: boolean;
-    activeConnections?: number;
-    isReconnecting?: boolean;
-    inflightQueryCount?: number;
-    reconnectAttempts?: number;
-    maxReconnectAttempts?: number;
-  };
+  multiTabStatus?: MultiTabStatus;
 }
 
 // Create the context with a default undefined value
@@ -50,9 +44,9 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
-  const [initializationStage, setInitializationStage] = useState<'not_started' | 'loading' | 'ready' | 'error'>('not_started');
-  const [loadingProgress, setLoadingProgress] = useState<DuckDBContextType['loadingProgress']>(null);
-  const [multiTabStatus, setMultiTabStatus] = useState<DuckDBContextType['multiTabStatus']>({ initialized: false });
+  const [initializationStage, setInitializationStage] = useState<InitializationStage>('not_started');
+  const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
+  const [multiTabStatus, setMultiTabStatus] = useState<MultiTabStatus>({ initialized: false });
   const [lastCommitTime, setLastCommitTime] = useState<Date | null>(null);
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,21 +64,21 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         const manager = DuckDBManager.getInstance();
         
         // Set up progress callback
-        const updateProgress = (stage: any, message: string, progress?: number) => {
+        const updateProgress: ProgressCallback = (progressInfo: LoadingProgress) => {
           if (isMountedRef.current) {
-            setLoadingProgress({ stage, message, progress });
+            setLoadingProgress(progressInfo);
           }
         };
         
-        updateProgress('compiling', 'Compiling WebAssembly module...', 30);
+        updateProgress({ stage: 'compiling', message: 'Compiling WebAssembly module...', progress: 30 });
         const dbState = await manager.getDatabaseState();
         
-        updateProgress('instantiating', 'Initializing database instance...', 60);
+        updateProgress({ stage: 'instantiating', message: 'Initializing database instance...', progress: 60 });
         
         // Get multi-tab status
         const tabStatus = await manager.getMultiTabStatus();
         
-        updateProgress('connecting', 'Establishing database connection...', 80);
+        updateProgress({ stage: 'connecting', message: 'Establishing database connection...', progress: 80 });
         
         // Check if database is using OPFS (persistent) or fell back to in-memory
         const hasWrite = dbState.isOpfsSupported;
@@ -111,22 +105,23 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
           checkDatabaseRecovery().catch(() => {});
         }, 1000);
         
-        updateProgress('complete', 'Database ready!', 100);
+        updateProgress({ stage: 'complete', message: 'Database ready!', progress: 100 });
         
         // Only update state if component is still mounted
         if (isMountedRef.current) {
           setDb(dbState.db);
           setHasWriteAccess(hasWrite);
-          setMultiTabStatus(tabStatus as any);
+          setMultiTabStatus(tabStatus as MultiTabStatus);
           setIsLoading(false);
           setInitializationStage('ready');
           setLoadingProgress(null); // Clear progress when ready
           // Database context initialized
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         // Suppress console error; surface via context state only
         if (isMountedRef.current) {
-          setError(e);
+          const error = e instanceof Error ? e : new Error(toErrorMessage(e));
+          setError(error);
           setIsLoading(false);
           setInitializationStage('error');
           setLoadingProgress(null);
@@ -159,7 +154,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         const tabStatus = await manager.getMultiTabStatus();
         
         if (isMountedRef.current) {
-          setMultiTabStatus(tabStatus as any);
+          setMultiTabStatus(tabStatus as MultiTabStatus);
         }
       } catch (error) {
         // Suppress status update errors in console

@@ -639,5 +639,5 @@ export const getTables = async (): Promise<string[]> => {
   const result = await executeReadQuery(
     `SELECT table_name FROM information_schema.tables WHERE table_schema = 'main' AND table_type = 'BASE TABLE' ORDER BY table_name;`
   );
-  return result.toArray().map((row: any) => row.table_name);
+  return (result as any).toArray().map((row: any) => row.table_name);
 };

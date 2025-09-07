@@ -116,7 +116,7 @@ export const SchemaPreviewInline: React.FC<SchemaPreviewInlineProps> = ({
 
       const convertQuery = `SELECT ${selectClauses.join(', ')} FROM ${readFunction} LIMIT 20`;
       const result = await executeReadQuery(convertQuery);
-      const convertedData: Record<string, any>[] = result.toArray();
+      const convertedData: Record<string, any>[] = (result as any).toArray();
       
       setConvertedSampleData(convertedData);
     } catch (error) {

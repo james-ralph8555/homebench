@@ -1,15 +1,24 @@
 import { DuckDBManager } from './duckdbManager';
 import { logger } from '@/lib/logger';
+import type { 
+  QueryParameters, 
+  WriteResult as BaseWriteResult, 
+  WriteOptions,
+  DatabaseError,
+  MultiTabStatus,
+  DuckDatabase,
+  DuckConnection
+} from './types';
+import { toErrorMessage } from './utils';
+import type { MultiTabDatabaseState } from './multitab/types';
 
 /**
  * Multi-tab aware durability operations with streaming support and UI feedback
  */
 
-export interface WriteResult {
-  success: boolean;
+export interface WriteResult extends BaseWriteResult {
   rowsAffected?: number;
-  error?: string;
-  duration: number;
+  castWarnings?: string[];
 }
 
 export interface ConnectionHealth {
@@ -67,23 +76,24 @@ async function validateConnectionHealth(manager: DuckDBManager): Promise<Connect
       await manager.executeQuery(`CREATE TEMPORARY TABLE ${testTableName} AS SELECT 1 as test_col`, [], 'rw');
       
       canWrite = true;
-    } catch (writeError: any) {
+    } catch (writeError: unknown) {
       logger.warn('Connection write test failed:', writeError);
       
       // Check if this is the specific "write mode" error we're trying to fix
-      if (writeError.message?.includes('File is not opened in write mode') || 
-          writeError.message?.includes('TransactionContext')) {
+      const writeErrorMsg = toErrorMessage(writeError);
+      if (writeErrorMsg.includes('File is not opened in write mode') || 
+          writeErrorMsg.includes('TransactionContext')) {
         return {
           canRead,
           canWrite: false,
-          error: `Write capability corrupted: ${writeError.message}`
+          error: `Write capability corrupted: ${writeErrorMsg}`
         };
       }
       
       return {
         canRead,
         canWrite: false,
-        error: `Write capability failed: ${writeError.message || String(writeError)}`
+        error: `Write capability failed: ${writeErrorMsg}`
       };
     }
 
@@ -129,11 +139,12 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
         }
         
         return true;
-      } catch (freshConnError: any) {
+      } catch (freshConnError: unknown) {
         logger.warn('Fresh connection test failed:', freshConnError);
         
         // If checkpoint fails with write mode error, the database itself may be corrupted
-        if (freshConnError.message?.includes('File is not opened in write mode')) {
+        const errorMsg = toErrorMessage(freshConnError);
+        if (errorMsg.includes('File is not opened in write mode')) {
           logger.error('Database-level write corruption detected');
           
           if (recoveryCallback) {
@@ -171,7 +182,7 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
 
 export interface StreamingQueryOptions {
   onArrowChunk?: (chunk: ArrayBuffer) => void;
-  onJsonChunk?: (rows: any[]) => void;
+  onJsonChunk?: (rows: unknown[]) => void;
   onProgress?: (processed: number) => void;
   format?: 'arrow' | 'json';
   chunkRows?: number;
@@ -182,10 +193,10 @@ export interface StreamingQueryOptions {
  */
 export const executeDurableWrite = async (
   query: string,
-  params: any[] = [],
-  options?: {
-    description?: string; // Human-readable description for logging
-    retryAttempts?: number; // Number of retry attempts for transient failures
+  params: QueryParameters = [],
+  options?: WriteOptions & {
+    description?: string;
+    retryAttempts?: number;
   }
 ): Promise<WriteResult> => {
   const description = options?.description || 'Write operation';
@@ -283,16 +294,17 @@ export const executeDurableWrite = async (
           }
           
           return { success: true, duration };
-        } catch (error: any) {
-          lastError = error;
+        } catch (error: unknown) {
+          lastError = error instanceof Error ? error : new Error(toErrorMessage(error));
           // No rollback needed since we're not using explicit transactions
 
           // Check for write-mode corruption errors specifically
-          const isWriteModeError = error.message?.includes('File is not opened in write mode') ||
-                                  error.message?.includes('TransactionContext');
+          const errorMsg = toErrorMessage(error);
+          const isWriteModeError = errorMsg.includes('File is not opened in write mode') ||
+                                  errorMsg.includes('TransactionContext');
           
           if (isWriteModeError) {
-            logger.error(`Write-mode corruption detected during ${description}:`, error.message);
+            logger.error(`Write-mode corruption detected during ${description}:`, errorMsg);
             
             // Try recovery if this is our first attempt
             if (attempt === 0) {
@@ -314,10 +326,10 @@ export const executeDurableWrite = async (
             }
           }
 
-          const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
+          const isRetryable = /database.*locked|busy|unavailable/i.test(errorMsg || '');
           if (isRetryable && attempt < retryAttempts) {
             const delay = Math.pow(2, attempt) * 500;
-            logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
+            logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, errorMsg);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
@@ -347,16 +359,17 @@ export const executeDurableWrite = async (
         }
         
         return { success: true, duration };
-      } catch (error: any) {
-        lastError = error;
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(toErrorMessage(error));
         // No rollback needed since we're not using explicit transactions
 
         // Check for write-mode corruption errors specifically
-        const isWriteModeError = error.message?.includes('File is not opened in write mode') ||
-                                error.message?.includes('TransactionContext');
+        const errorMsg = toErrorMessage(error);
+        const isWriteModeError = errorMsg.includes('File is not opened in write mode') ||
+                                errorMsg.includes('TransactionContext');
         
         if (isWriteModeError) {
-          logger.error(`Write-mode corruption detected in client during ${description}:`, error.message);
+          logger.error(`Write-mode corruption detected in client during ${description}:`, errorMsg);
           
           // Try recovery if this is our first attempt  
           if (attempt === 0) {
@@ -378,10 +391,10 @@ export const executeDurableWrite = async (
           }
         }
 
-        const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
+        const isRetryable = /database.*locked|busy|unavailable/i.test(errorMsg || '');
         if (isRetryable && attempt < retryAttempts) {
           const delay = Math.pow(2, attempt) * 500;
-          logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
+          logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, errorMsg);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -393,15 +406,15 @@ export const executeDurableWrite = async (
     const duration = performance.now() - startTime;
     logger.error(`${description} failed after ${duration.toFixed(2)}ms:`, lastError);
 
-    return { success: false, error: lastError?.message || String(lastError), duration };
+    return { success: false, error: toErrorMessage(lastError), duration };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = performance.now() - startTime;
     logger.error(`${description} failed after ${duration.toFixed(2)}ms:`, error);
     
     return {
       success: false,
-      error: error.message || String(error),
+      error: toErrorMessage(error),
       duration
     };
   } finally {
@@ -417,8 +430,8 @@ export const executeDurableWrite = async (
  */
 export const executeReadQuery = async (
   query: string, 
-  params: any[] = []
-): Promise<any> => {
+  params: QueryParameters = []
+): Promise<unknown> => {
   const manager = DuckDBManager.getInstance();
   return manager.executeQuery(query, params, 'ro');
 };
@@ -431,7 +444,7 @@ export const executeReadQuery = async (
  */
 export const executeReadQuerySequence = async (
   queries: string[]
-): Promise<any[]> => {
+): Promise<unknown[]> => {
   const manager = DuckDBManager.getInstance();
   const { getMultiTabState } = await import('./multitab/boot');
   const state = getMultiTabState();
@@ -441,7 +454,7 @@ export const executeReadQuerySequence = async (
     const db = await manager.getDatabase();
     const conn = await db.connect();
     try {
-      const results: any[] = [];
+      const results: unknown[] = [];
       for (const sql of queries) {
         const res = await conn.query(sql);
         results.push(res);
@@ -453,7 +466,7 @@ export const executeReadQuerySequence = async (
   }
 
   // Client path: send sequentially over the same dedicated port/connection
-  const results: any[] = [];
+  const results: unknown[] = [];
   for (const sql of queries) {
     const res = await manager.executeQuery(sql, [], 'ro');
     results.push(res);
@@ -466,7 +479,7 @@ export const executeReadQuerySequence = async (
  */
 export const executeStreamingReadQuery = async (
   query: string,
-  params: any[] = [],
+  params: QueryParameters = [],
   options: StreamingQueryOptions = {}
 ): Promise<void> => {
   const manager = DuckDBManager.getInstance();
@@ -567,7 +580,7 @@ export const createTableFromFileWithSchema = async (
         for (let i = 0; i < typeOverrides.length; i++) {
           const override = typeOverrides[i];
           const nullResult = await executeReadQuery(nullCheckQueries[i]);
-          const nullCount = nullResult.toArray()[0]?.null_count || 0;
+          const nullCount = (nullResult as any)?.toArray()[0]?.null_count || 0;
           
           if (nullCount > 0) {
             castWarnings.push(
@@ -693,7 +706,7 @@ export async function performConnectionDiagnostics(): Promise<{
     timestamp: string;
     isLeader: boolean;
     opfsSupported: boolean;
-    multiTabStatus: any;
+    multiTabStatus: MultiTabStatus | { error: string };
     databaseTables: string[];
   };
 }> {
@@ -726,7 +739,12 @@ export async function performConnectionDiagnostics(): Promise<{
           [],
           'ro'
         );
-        databaseTables = result.toArray().map((row: any) => row.table_name);
+        databaseTables = result.toArray().map((row: unknown) => {
+          if (row && typeof row === 'object' && 'table_name' in row) {
+            return String((row as { table_name: unknown }).table_name);
+          }
+          return 'unknown';
+        });
       }
     } catch (error) {
       logger.warn('Could not retrieve table list for diagnostics:', error);

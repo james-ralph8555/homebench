@@ -1,9 +1,18 @@
-export type ExportFormat = 'CSV' | 'PARQUET' | 'JSON';
 import { logger } from '@/lib/logger';
+import type { 
+  ExportFormat as TypedExportFormat, 
+  ExportBuffer, 
+  ExportResult,
+  DuckDatabase,
+  DuckConnection
+} from './types';
+import { toErrorMessage } from './utils';
+
+export type ExportFormat = TypedExportFormat;
 
 // Function to export a query result to a file
 export async function exportQueryAsFile(
-  db: any, // Using any to avoid import issues
+  db: DuckDatabase,
   sqlQuery: string,
   fileName: string,
   format: ExportFormat
@@ -45,18 +54,16 @@ export async function exportQueryAsFile(
       await connection.query(copyCommand);
     } catch (queryError) {
       logger.error('Failed to execute export query:', queryError);
-      const errorMessage = queryError instanceof Error ? queryError.message : String(queryError);
-      
-      throw new Error(`Export query failed: ${errorMessage}`);
+      throw new Error(`Export query failed: ${toErrorMessage(queryError)}`);
     }
     
     // Get the file buffer from DuckDB's virtual filesystem
-    let buffer: any;
+    let buffer: ExportBuffer;
     try {
       buffer = await db.copyFileToBuffer(tempFileName);
     } catch (bufferError) {
       logger.error('Failed to retrieve export file buffer:', bufferError);
-      throw new Error(`Failed to retrieve exported ${format} file: ${bufferError instanceof Error ? bufferError.message : String(bufferError)}`);
+      throw new Error(`Failed to retrieve exported ${format} file: ${toErrorMessage(bufferError)}`);
     }
     
     // Validate buffer before proceeding
@@ -76,7 +83,7 @@ export async function exportQueryAsFile(
       }
     };
 
-    const blob = new Blob([buffer], { type: getMimeType(format) });
+    const blob = new Blob([buffer instanceof ArrayBuffer ? buffer : (buffer as any).buffer || buffer], { type: getMimeType(format) });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -99,7 +106,7 @@ export async function exportQueryAsFile(
 }
 
 // Function to download the entire database as a .duckdb file
-export async function downloadDatabaseFile(db: any): Promise<void> {
+export async function downloadDatabaseFile(db: DuckDatabase): Promise<void> {
   const connection = await db.connect();
   try {
     // Generate a unique temporary filename to avoid conflicts
@@ -123,7 +130,7 @@ export async function downloadDatabaseFile(db: any): Promise<void> {
     const fileName = `homebench_database_${fileTimestamp}.duckdb`;
     
     // Trigger browser download
-    const blob = new Blob([buffer]);
+    const blob = new Blob([buffer instanceof ArrayBuffer ? buffer : (buffer as any).buffer || buffer]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

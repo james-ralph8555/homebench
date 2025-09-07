@@ -103,12 +103,12 @@ export async function detectFileSchema(
     // Get column information using DESCRIBE
     const describeQuery = `DESCRIBE SELECT * FROM ${readFunction}`;
     const schemaResult = await executeReadQuery(describeQuery);
-    const columns: ColumnInfo[] = schemaResult.toArray();
+    const columns: ColumnInfo[] = (schemaResult as any).toArray();
     
     // Get sample data (limit to avoid memory issues)
     const sampleQuery = `SELECT * FROM ${readFunction} LIMIT ${sampleRows}`;
     const sampleResult = await executeReadQuery(sampleQuery);
-    const sampleData: Record<string, any>[] = sampleResult.toArray();
+    const sampleData: Record<string, any>[] = (sampleResult as any).toArray();
     
     // Optionally get row count for smaller files (skip for performance on large files)
     let rowCount: number | undefined;
@@ -117,7 +117,7 @@ export async function detectFileSchema(
       if (fileExtension.toLowerCase() === 'parquet' || sampleData.length < sampleRows) {
         const countQuery = `SELECT COUNT(*) as total_rows FROM ${readFunction}`;
         const countResult = await executeReadQuery(countQuery);
-        const countData = countResult.toArray();
+        const countData = (countResult as any).toArray();
         rowCount = countData[0]?.total_rows;
       }
     } catch (error) {

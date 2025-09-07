@@ -1,25 +1,24 @@
 import { Table as ArrowTable } from 'apache-arrow';
-import { PlotData, Layout } from 'plotly.js';
+import { PlotData, Layout, Config } from 'plotly.js';
 import { logger } from '@/lib/logger';
+import type { DataRow, VisualizationDataset, BaseChartConfig } from './types';
+import { toErrorMessage } from './utils';
 
-export interface ChartConfig {
+export interface ChartConfig extends BaseChartConfig {
   type: 'scatter' | 'bar' | 'line' | 'pie' | 'histogram';
   xColumn?: string;
   yColumn?: string;
   colorColumn?: string;
   sizeColumn?: string;
-  title?: string;
   xTitle?: string;
   yTitle?: string;
-  showLegend?: boolean;
-  useWebGL?: boolean;
   nbins?: number;
 }
 
 export interface PlotlyData {
   data: Partial<PlotData>[];
   layout: Partial<Layout>;
-  config?: any;
+  config?: Partial<Config>;
 }
 
 export interface TransformError extends Error {
@@ -129,7 +128,7 @@ export const transformArrowToPlotly = (
     }
 
     // Convert Arrow table to JS objects (step 1 of transformation pipeline)
-    const dataObjects = arrowTable.toArray().map(row => row.toJSON());
+    const dataObjects: DataRow[] = arrowTable.toArray().map(row => row.toJSON() as DataRow);
     
     // Performance check for large datasets
     const rowCount = dataObjects.length;
@@ -196,14 +195,14 @@ export const transformArrowToPlotly = (
 
     return plotlyData;
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof PlotlyTransformError) {
       throw error;
     }
     throw new PlotlyTransformError(
-      `Data transformation failed: ${error.message}`,
+      `Data transformation failed: ${toErrorMessage(error)}`,
       'TRANSFORMATION_ERROR',
-      error.stack
+      error instanceof Error ? error.stack : undefined
     );
   }
 };

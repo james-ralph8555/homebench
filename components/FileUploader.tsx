@@ -8,6 +8,7 @@ import { createTableFromFile, createTableFromFileWithSchema } from '@/lib/durabl
 import { SchemaPreviewInline } from './SchemaPreviewInline';
 import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
 import { logger } from '@/lib/logger';
+import { toErrorMessage } from '@/lib/utils';
 
 interface FileUploaderProps {
   onFileUploaded?: (fileName: string) => void;
@@ -113,7 +114,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       const result = await createTableFromFile(tableName, file.name, fileExt);
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create table from file');
+        throw new Error(toErrorMessage(result.error) || 'Failed to create table from file');
       }
 
       // Mark this table as an uploaded file in metadata store
@@ -168,7 +169,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       );
       
       if (!result.success) {
-        throw new Error(result.error || 'Failed to create table from file');
+        throw new Error(toErrorMessage(result.error) || 'Failed to create table from file');
       }
 
       // Mark this table as an uploaded file in metadata store

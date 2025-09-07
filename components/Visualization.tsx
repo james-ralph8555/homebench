@@ -89,7 +89,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
         try {
           // First get the total count to check if data is limited
           const countResult = await executeReadQuery(`SELECT COUNT(*) as total_count FROM "${selectedTable}"`);
-          const totalRows = countResult.get(0)?.total_count || 0;
+          const totalRows = (countResult as any).get(0)?.total_count || 0;
           
           const result = await executeReadQuery(`SELECT * FROM "${selectedTable}" LIMIT ${chartRowLimit}`);
           setTableData(result as ArrowTable);

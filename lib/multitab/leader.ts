@@ -12,14 +12,16 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { logger } from '@/lib/logger';
 import { SqlRequest, SqlResponse, DEFAULT_MULTITAB_CONFIG, PendingQuery, QueryCancelledError } from './types';
+import type { DuckDatabase, DuckConnection } from '@/lib/types';
+import { toErrorMessage } from '@/lib/utils';
 
 // =============================================================================
 // LEADER STATE
 // =============================================================================
 
-let db: duckdb.AsyncDuckDB | null = null;
+let db: DuckDatabase | null = null;
 let isOpfsSupported = false;
-const connectionPool = new Map<MessagePort, any>();
+const connectionPool = new Map<MessagePort, DuckConnection>();
 let writeQueue = Promise.resolve();
 
 // =============================================================================
@@ -30,7 +32,7 @@ let writeQueue = Promise.resolve();
  * Set the leader's DuckDB instance (called by DuckDBManager)
  * This avoids circular dependency issues
  */
-export function setLeaderDatabase(dbInstance: duckdb.AsyncDuckDB, opfsSupported: boolean): void {
+export function setLeaderDatabase(dbInstance: DuckDatabase, opfsSupported: boolean): void {
   db = dbInstance;
   isOpfsSupported = opfsSupported;
   logger.info(`Leader DuckDB set (OPFS: ${isOpfsSupported ? 'enabled' : 'disabled'})`);
@@ -77,7 +79,7 @@ export async function handleClientConnection(port: MessagePort): Promise<void> {
 /**
  * Set up message handling for a client connection
  */
-function setupClientMessageHandling(port: MessagePort, connection: any): void {
+function setupClientMessageHandling(port: MessagePort, connection: DuckConnection): void {
   const pendingQueries = new Map<string, AbortController>();
   
   port.onmessage = async (event: MessageEvent<SqlRequest>) => {
@@ -116,11 +118,11 @@ function setupClientMessageHandling(port: MessagePort, connection: any): void {
           pendingQueries.delete(request.id);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const response: SqlResponse = {
         id: request.id,
         ok: false,
-        error: error?.message || String(error)
+        error: toErrorMessage(error)
       };
       port.postMessage(response);
     }
@@ -138,7 +140,7 @@ function setupClientMessageHandling(port: MessagePort, connection: any): void {
  */
 async function executeAndStream(
   port: MessagePort,
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   format: 'arrow' | 'json',
   chunkRows: number,
@@ -157,7 +159,7 @@ async function executeAndStream(
     // Send completion signal
     port.postMessage({ id: request.id, ok: true, done: true } as any);
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (abortController.signal.aborted) {
       throw new QueryCancelledError();
     }
@@ -170,15 +172,23 @@ async function executeAndStream(
  */
 async function streamArrowResults(
   port: MessagePort,
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   abortController: AbortController
 ): Promise<void> {
   try {
     // Execute query and get Arrow result
-    const result = request.args && request.args.length > 0
-      ? await connection.query(request.sql, request.args)
-      : await connection.query(request.sql);
+    let result;
+    if (request.args && request.args.length > 0) {
+      const stmt = await connection.prepare(request.sql);
+      try {
+        result = await stmt.query(...request.args);
+      } finally {
+        await stmt.close();
+      }
+    } else {
+      result = await connection.query(request.sql);
+    }
     
     if (abortController.signal.aborted) {
       throw new QueryCancelledError();
@@ -186,7 +196,16 @@ async function streamArrowResults(
     
     // Convert to Arrow table and serialize
     const arrowTable = result;
-    const ipcBuffer = arrowTable.serialize();
+    let ipcBuffer: ArrayBuffer;
+    
+    if (typeof (arrowTable as any).serialize === 'function') {
+      ipcBuffer = (arrowTable as any).serialize();
+    } else {
+      // Fallback for DuckDB tables that don't have serialize method
+      const { tableToIPC } = await import('apache-arrow');
+      const buffer = tableToIPC(arrowTable as any);
+      ipcBuffer = buffer instanceof ArrayBuffer ? buffer : (buffer as any).buffer || buffer;
+    }
     
     // Stream large buffers in chunks to avoid memory issues
     const maxChunkSize = DEFAULT_MULTITAB_CONFIG.maxChunkSize;
@@ -206,9 +225,10 @@ async function streamArrowResults(
         [chunk]
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // DuckDB-specific error handling
-    if (error?.message?.includes('cancelled')) {
+    const errorMsg = toErrorMessage(error);
+    if (errorMsg.includes('cancelled')) {
       throw new QueryCancelledError();
     }
     throw error;
@@ -220,7 +240,7 @@ async function streamArrowResults(
  */
 async function streamJsonResults(
   port: MessagePort,
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   chunkRows: number,
   abortController: AbortController
@@ -242,9 +262,17 @@ async function streamJsonResults(
       const pageQuery = `${baseQuery} LIMIT ${chunkRows} OFFSET ${offset}`;
       const pageArgs = request.args ?? [];
       
-      const result = pageArgs.length > 0
-        ? await connection.query(pageQuery, pageArgs)
-        : await connection.query(pageQuery);
+      let result;
+      if (pageArgs.length > 0) {
+        const stmt = await connection.prepare(pageQuery);
+        try {
+          result = await stmt.query(...pageArgs);
+        } finally {
+          await stmt.close();
+        }
+      } else {
+        result = await connection.query(pageQuery);
+      }
       
       const rows = result.toArray();
       
@@ -263,8 +291,9 @@ async function streamJsonResults(
       offset += rows.length;
       hasMoreRows = rows.length === chunkRows; // More rows if we got a full page
     }
-  } catch (error: any) {
-    if (error?.message?.includes('cancelled')) {
+  } catch (error: unknown) {
+    const errorMsg = toErrorMessage(error);
+    if (errorMsg.includes('cancelled')) {
       throw new QueryCancelledError();
     }
     throw error;
@@ -352,12 +381,12 @@ export async function handleBroadcastQuery(queryData: any, channel: BroadcastCha
         await connection.close();
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorResponse = {
       type: 'query_response',
       id: request.id,
       ok: false,
-      error: error?.message || String(error)
+      error: toErrorMessage(error)
     };
     channel.postMessage(errorResponse);
   }
@@ -367,7 +396,7 @@ export async function handleBroadcastQuery(queryData: any, channel: BroadcastCha
  * Execute a query and send results back via BroadcastChannel
  */
 async function executeBroadcastQuery(
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   format: 'arrow' | 'json',
   channel: BroadcastChannel
@@ -394,7 +423,7 @@ async function executeBroadcastQuery(
       done: true
     });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw error;
   }
 }
@@ -403,7 +432,7 @@ async function executeBroadcastQuery(
  * Stream Arrow results via BroadcastChannel
  */
 async function streamArrowResultsBroadcast(
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   channel: BroadcastChannel
 ): Promise<void> {
@@ -411,9 +440,17 @@ async function streamArrowResultsBroadcast(
     logger.debug('Leader executing SQL:', request.sql);
     
     // Execute query and get Arrow result
-    const result = request.args && request.args.length > 0
-      ? await connection.query(request.sql, request.args)
-      : await connection.query(request.sql);
+    let result;
+    if (request.args && request.args.length > 0) {
+      const stmt = await connection.prepare(request.sql);
+      try {
+        result = await stmt.query(...request.args);
+      } finally {
+        await stmt.close();
+      }
+    } else {
+      result = await connection.query(request.sql);
+    }
     
     logger.debug('Leader got result:', result, 'numRows:', result.numRows);
     
@@ -423,32 +460,13 @@ async function streamArrowResultsBroadcast(
     
     try {
       // Try to use the serialize method if available
-      if (typeof result.serialize === 'function') {
-        ipcBuffer = result.serialize();
+      if (typeof (result as any).serialize === 'function') {
+        ipcBuffer = (result as any).serialize();
       } else {
-        // DuckDB-WASM results have internal Arrow data we can access
-        // The result should be an Arrow Table with data chunks
-        const { RecordBatchStreamWriter } = await import('apache-arrow');
-        
-        // Create an IPC stream from the table
-        const writer = RecordBatchStreamWriter.writeAll(result);
-        const chunks: Uint8Array[] = [];
-        
-        for await (const chunk of writer) {
-          chunks.push(chunk);
-        }
-        
-        // Combine all chunks into a single buffer
-        const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-        const combined = new Uint8Array(totalLength);
-        let offset = 0;
-        
-        for (const chunk of chunks) {
-          combined.set(chunk, offset);
-          offset += chunk.length;
-        }
-        
-        ipcBuffer = combined.buffer;
+        // Fallback for DuckDB tables that don't have serialize method
+        const { tableToIPC } = await import('apache-arrow');
+        const buffer = tableToIPC(result as any);
+        ipcBuffer = buffer instanceof ArrayBuffer ? buffer : (buffer as any).buffer || buffer;
       }
       
       // Since BroadcastChannel can't transfer ArrayBuffers directly, 
@@ -464,7 +482,12 @@ async function streamArrowResultsBroadcast(
       logger.warn('Failed to serialize as Arrow IPC, falling back to JSON:', serializationError);
       
       // Fallback to JSON if Arrow IPC serialization fails
-      const jsonData = result.toArray().map((row: any) => row.toJSON());
+      const jsonData = result.toArray().map((row: unknown) => {
+        if (row && typeof row === 'object' && 'toJSON' in row && typeof row.toJSON === 'function') {
+          return row.toJSON();
+        }
+        return row;
+      });
       
       channel.postMessage({
         type: 'query_response',
@@ -473,7 +496,7 @@ async function streamArrowResultsBroadcast(
         rows: jsonData
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw error;
   }
 }
@@ -482,17 +505,30 @@ async function streamArrowResultsBroadcast(
  * Stream JSON results via BroadcastChannel
  */
 async function streamJsonResultsBroadcast(
-  connection: any,
+  connection: DuckConnection,
   request: Extract<SqlRequest, {type: 'sql'}>,
   channel: BroadcastChannel
 ): Promise<void> {
   try {
     // Execute query
-    const result = request.args && request.args.length > 0
-      ? await connection.query(request.sql, request.args)
-      : await connection.query(request.sql);
+    let result;
+    if (request.args && request.args.length > 0) {
+      const stmt = await connection.prepare(request.sql);
+      try {
+        result = await stmt.query(...request.args);
+      } finally {
+        await stmt.close();
+      }
+    } else {
+      result = await connection.query(request.sql);
+    }
     
-    const rows = result.toArray().map((row: any) => row.toJSON());
+    const rows = result.toArray().map((row: unknown) => {
+      if (row && typeof row === 'object' && 'toJSON' in row && typeof row.toJSON === 'function') {
+        return row.toJSON();
+      }
+      return row;
+    });
     
     // Send all rows in one batch for simplicity
     channel.postMessage({
@@ -501,7 +537,7 @@ async function streamJsonResultsBroadcast(
       ok: true,
       rows: rows
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw error;
   }
 }
