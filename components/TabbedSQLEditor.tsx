@@ -211,14 +211,14 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
     <div className={`${className}`}>
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center flex-1 min-w-0 mr-2">
+          <div className="flex items-center flex-1 min-w-0 mr-2 overflow-hidden bg-muted rounded-md p-1">
             <div className="overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-              <TabsList className="flex-nowrap min-w-max">
+              <TabsList className="flex-nowrap w-full justify-start shrink-0 bg-muted">
                 {tabs.map((tab) => (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="group relative px-3 pr-6 py-1.5 whitespace-nowrap"
+                    className="group relative px-3 pr-6 py-1.5 whitespace-nowrap flex-shrink-0"
                   >
                     {tab.label}
                     {tabs.length > 1 && (
