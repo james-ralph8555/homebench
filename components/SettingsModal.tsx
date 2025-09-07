@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { MemoryUsageBar } from './MemoryUsageBar';
-import { TriangleIcon, BugIcon, RefreshIcon, FileIcon, FolderIcon, WarningIcon, SunIcon, MoonIcon } from './icons';
+import { TriangleIcon, BugIcon, RefreshIcon, FileIcon, FolderIcon, WarningIcon, SunIcon, MoonIcon, GitHubIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { getDatabaseFileSize, wipeOpfsData, downloadSavedSessionAsDuckDB } from '@/lib/opfsUtils';
 import { isOpfsSupported } from '@/lib/duckdbManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
+import { logger } from '@/lib/logger';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             });
           }
         } catch (error) {
-          console.warn(`Could not get info for ${name}:`, error);
+          logger.warn(`Could not get info for ${name}:`, error);
           files.push({
             name,
             size: 0,
@@ -99,7 +100,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       files.sort((a, b) => a.name.localeCompare(b.name));
       setOpfsFiles(files);
     } catch (error) {
-      console.warn('Could not load OPFS files:', error);
+      logger.warn('Could not load OPFS files:', error);
       setOpfsFiles([]);
     }
   }, []);
@@ -126,7 +127,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       );
       setSavedQueries(keys);
     } catch (error) {
-      console.warn('Could not load saved queries:', error);
+      logger.warn('Could not load saved queries:', error);
       setSavedQueries([]);
     }
   }, []);
@@ -138,6 +139,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  const openProjectGithub = useCallback(() => {
+    try {
+      window.open('https://github.com/james-ralph8555/homebench', '_blank', 'noopener,noreferrer');
+    } catch {
+      // noop
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -202,25 +211,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       // 1. Wipe OPFS data (database)
       try {
         await wipeOpfsData();
-        console.log('✓ OPFS data wiped');
+        logger.info('OPFS data wiped');
       } catch (error) {
-        console.warn('Failed to wipe OPFS:', error);
+        logger.warn('Failed to wipe OPFS:', error);
       }
       
       // 2. Clear all localStorage (saved queries, preferences)
       try {
         localStorage.clear();
-        console.log('✓ LocalStorage cleared');
+        logger.info('LocalStorage cleared');
       } catch (error) {
-        console.warn('Failed to clear localStorage:', error);
+        logger.warn('Failed to clear localStorage:', error);
       }
       
       // 3. Clear sessionStorage
       try {
         sessionStorage.clear();
-        console.log('✓ SessionStorage cleared');
+        logger.info('SessionStorage cleared');
       } catch (error) {
-        console.warn('Failed to clear sessionStorage:', error);
+        logger.warn('Failed to clear sessionStorage:', error);
       }
       
       // 4. Clear IndexedDB (if any)
@@ -237,12 +246,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             }
           })
         );
-        console.log('✓ IndexedDB databases cleared');
+        logger.info('IndexedDB databases cleared');
       } catch (error) {
-        console.warn('Failed to clear IndexedDB:', error);
+        logger.warn('Failed to clear IndexedDB:', error);
       }
       
-      console.log('✓ All application data deleted successfully');
+      logger.info('All application data deleted successfully');
       
       // Reload the page to reinitialize everything
       window.location.reload();
@@ -493,6 +502,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="ml-2 text-gray-600 dark:text-gray-400">Processing...</span>
             </div>
           )}
+
+          {/* Project support / info (prominent) */}
+          <div className="pt-4 border-t border-border">
+            <div
+              className="mt-3 rounded-lg border border-border bg-muted/40 p-4 cursor-pointer hover:bg-muted/60 transition-colors"
+              role="link"
+              tabIndex={0}
+              onClick={openProjectGithub}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openProjectGithub();
+                }
+              }}
+            >
+              <div className="flex items-start gap-3">
+                {/* GitHub badge */}
+                <div
+                  aria-hidden
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-input text-foreground/80 hover:text-foreground bg-background/60 shrink-0"
+                >
+                  <GitHubIcon size={16} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">Support & Docs</div>
+                  <p className="text-sm text-muted-foreground mt-1" onClick={(e) => e.stopPropagation()}>
+                    Visit the project on GitHub to learn more or get help. You can browse docs and
+                    {' '}<a
+                      href="https://github.com/james-ralph8555/homebench/issues"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      open an issue
+                    </a>
+                    {' '}for support.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@
  */
 
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { logger } from '@/lib/logger';
 import { SqlRequest, SqlResponse, DEFAULT_MULTITAB_CONFIG, PendingQuery, QueryCancelledError } from './types';
 
 // =============================================================================
@@ -32,14 +33,14 @@ let writeQueue = Promise.resolve();
 export function setLeaderDatabase(dbInstance: duckdb.AsyncDuckDB, opfsSupported: boolean): void {
   db = dbInstance;
   isOpfsSupported = opfsSupported;
-  console.log(`✓ Leader DuckDB set (OPFS: ${isOpfsSupported ? 'enabled' : 'disabled'})`);
+  logger.info(`Leader DuckDB set (OPFS: ${isOpfsSupported ? 'enabled' : 'disabled'})`);
 }
 
 /**
  * Initialize the leader system (called after database is set)
  */
 export async function initializeLeader(): Promise<void> {
-  console.log('👑 Leader system ready');
+  logger.info('Leader system ready');
   
   if (!db) {
     throw new Error('Leader database not set - call setLeaderDatabase first');
@@ -66,9 +67,9 @@ export async function handleClientConnection(port: MessagePort): Promise<void> {
     // Wire up the message port for this client
     setupClientMessageHandling(port, connection);
     
-    console.log(`✓ Client connected (${connectionPool.size} active connections)`);
+    logger.info(`Client connected (${connectionPool.size} active connections)`);
   } catch (error) {
-    console.error('Failed to create client connection:', error);
+    logger.error('Failed to create client connection:', error);
     throw error;
   }
 }
@@ -302,10 +303,10 @@ async function writeMutex<T>(fn: () => Promise<T>): Promise<T> {
 function cleanupClientConnection(port: MessagePort): void {
   const connection = connectionPool.get(port);
   if (connection) {
-    connection.close().catch(console.warn);
+    connection.close().catch(logger.warn);
     connectionPool.delete(port);
     
-    console.log(`✓ Client disconnected (${connectionPool.size} active connections)`);
+    logger.info(`Client disconnected (${connectionPool.size} active connections)`);
   }
   
   try {
@@ -317,7 +318,7 @@ function cleanupClientConnection(port: MessagePort): void {
  * Handle query messages coming via BroadcastChannel (instead of MessagePort)
  */
 export async function handleBroadcastQuery(queryData: any, channel: BroadcastChannel): Promise<void> {
-  console.log('👑 Leader processing broadcast query:', queryData);
+  logger.debug('Leader processing broadcast query:', queryData);
   
   if (!db) {
     throw new Error('Leader DuckDB not initialized');
@@ -407,14 +408,14 @@ async function streamArrowResultsBroadcast(
   channel: BroadcastChannel
 ): Promise<void> {
   try {
-    console.log('👑 Leader executing SQL:', request.sql);
+    logger.debug('Leader executing SQL:', request.sql);
     
     // Execute query and get Arrow result
     const result = request.args && request.args.length > 0
       ? await connection.query(request.sql, request.args)
       : await connection.query(request.sql);
     
-    console.log('👑 Leader got result:', result, 'numRows:', result.numRows);
+    logger.debug('Leader got result:', result, 'numRows:', result.numRows);
     
     // DuckDB-WASM query results are Arrow Tables
     // Get the Arrow IPC buffer using the table's serialize method or internal data
@@ -460,7 +461,7 @@ async function streamArrowResultsBroadcast(
       });
       
     } catch (serializationError) {
-      console.warn('Failed to serialize as Arrow IPC, falling back to JSON:', serializationError);
+      logger.warn('Failed to serialize as Arrow IPC, falling back to JSON:', serializationError);
       
       // Fallback to JSON if Arrow IPC serialization fails
       const jsonData = result.toArray().map((row: any) => row.toJSON());

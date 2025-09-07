@@ -1,4 +1,5 @@
 export type ExportFormat = 'CSV' | 'PARQUET' | 'JSON';
+import { logger } from '@/lib/logger';
 
 // Function to export a query result to a file
 export async function exportQueryAsFile(
@@ -43,7 +44,7 @@ export async function exportQueryAsFile(
     try {
       await connection.query(copyCommand);
     } catch (queryError) {
-      console.error('Failed to execute export query:', queryError);
+      logger.error('Failed to execute export query:', queryError);
       const errorMessage = queryError instanceof Error ? queryError.message : String(queryError);
       
       throw new Error(`Export query failed: ${errorMessage}`);
@@ -54,7 +55,7 @@ export async function exportQueryAsFile(
     try {
       buffer = await db.copyFileToBuffer(tempFileName);
     } catch (bufferError) {
-      console.error('Failed to retrieve export file buffer:', bufferError);
+      logger.error('Failed to retrieve export file buffer:', bufferError);
       throw new Error(`Failed to retrieve exported ${format} file: ${bufferError instanceof Error ? bufferError.message : String(bufferError)}`);
     }
     
@@ -63,7 +64,7 @@ export async function exportQueryAsFile(
       throw new Error(`Export failed: Generated ${format} file is empty`);
     }
     
-    console.log(`Export buffer info: size=${buffer.byteLength} bytes, format=${format}`);
+    logger.debug(`Export buffer info: size=${buffer.byteLength} bytes, format=${format}`);
     
     // Trigger browser download with appropriate MIME type
     const getMimeType = (format: ExportFormat) => {
@@ -90,7 +91,7 @@ export async function exportQueryAsFile(
       await db.dropFile(tempFileName);
     } catch (cleanupError) {
       // Log but don't fail the export for cleanup errors
-      console.warn('Failed to clean up temporary export file:', tempFileName, cleanupError);
+      logger.warn('Failed to clean up temporary export file:', tempFileName, cleanupError);
     }
   } finally {
     await connection.close();
@@ -136,7 +137,7 @@ export async function downloadDatabaseFile(db: any): Promise<void> {
     try {
       await db.dropFile(tempDbFile);
     } catch (e) {
-      console.warn('Failed to clean up temporary file:', tempDbFile, e);
+      logger.warn('Failed to clean up temporary file:', tempDbFile, e);
     }
   } finally {
     await connection.close();

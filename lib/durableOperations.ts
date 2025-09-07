@@ -1,4 +1,5 @@
 import { DuckDBManager } from './duckdbManager';
+import { logger } from '@/lib/logger';
 
 /**
  * Multi-tab aware durability operations with streaming support and UI feedback
@@ -46,7 +47,7 @@ async function validateConnectionHealth(manager: DuckDBManager): Promise<Connect
       await manager.executeQuery('SELECT 1 as test', [], 'ro');
       canRead = true;
     } catch (readError) {
-      console.warn('Connection read test failed:', readError);
+      logger.warn('Connection read test failed:', readError);
       return {
         canRead: false,
         canWrite: false,
@@ -67,7 +68,7 @@ async function validateConnectionHealth(manager: DuckDBManager): Promise<Connect
       
       canWrite = true;
     } catch (writeError: any) {
-      console.warn('Connection write test failed:', writeError);
+      logger.warn('Connection write test failed:', writeError);
       
       // Check if this is the specific "write mode" error we're trying to fix
       if (writeError.message?.includes('File is not opened in write mode') || 
@@ -101,7 +102,7 @@ async function validateConnectionHealth(manager: DuckDBManager): Promise<Connect
  */
 async function attemptConnectionRecovery(manager: DuckDBManager, description: string): Promise<boolean> {
   try {
-    console.log(`🔧 Attempting connection recovery for: ${description}`);
+    logger.info(`Attempting connection recovery for: ${description}`);
     
     // Get database state to determine if we're leader or client
     const dbState = await manager.getDatabaseState();
@@ -109,7 +110,7 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
 
     if (isLeader) {
       // Leader path: Try to refresh the database connection by creating new connections
-      console.log('🔧 Leader attempting database connection refresh...');
+      logger.info('Leader attempting database connection refresh...');
       
       const db = await manager.getDatabase();
       
@@ -120,7 +121,7 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
         
         // Try to perform a checkpoint to verify write access
         await testConn.query('CHECKPOINT');
-        console.log('✓ Connection recovery successful - checkpoint completed');
+        logger.info('Connection recovery successful - checkpoint completed');
         
         // Notify user about recovery
         if (recoveryCallback) {
@@ -129,11 +130,11 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
         
         return true;
       } catch (freshConnError: any) {
-        console.warn('Fresh connection test failed:', freshConnError);
+        logger.warn('Fresh connection test failed:', freshConnError);
         
         // If checkpoint fails with write mode error, the database itself may be corrupted
         if (freshConnError.message?.includes('File is not opened in write mode')) {
-          console.error('🚨 Database-level write corruption detected');
+          logger.error('Database-level write corruption detected');
           
           if (recoveryCallback) {
             recoveryCallback('Database write access corrupted. Please refresh the page or clear OPFS data.', 'warning');
@@ -148,22 +149,22 @@ async function attemptConnectionRecovery(manager: DuckDBManager, description: st
       }
     } else {
       // Client path: The issue might be in the multi-tab communication
-      console.log('🔧 Client attempting connection recovery through leader...');
+      logger.info('Client attempting connection recovery through leader...');
       
       // For clients, try a simple health check that might trigger leader reconnection
       try {
         await manager.executeQuery('SELECT 1', [], 'rw');
-        console.log('✓ Client connection recovery successful');
+        logger.info('Client connection recovery successful');
         return true;
       } catch (clientRecoveryError) {
-        console.warn('Client connection recovery failed:', clientRecoveryError);
+        logger.warn('Client connection recovery failed:', clientRecoveryError);
         return false;
       }
     }
     
     return false;
   } catch (recoveryError) {
-    console.error('Connection recovery attempt failed:', recoveryError);
+    logger.error('Connection recovery attempt failed:', recoveryError);
     return false;
   }
 }
@@ -200,11 +201,11 @@ export const executeDurableWrite = async (
     const manager = DuckDBManager.getInstance();
 
     // PHASE 1: Validate connection health before attempting write operation
-    console.log(`🔍 Validating connection health for: ${description}`);
+    logger.debug(`Validating connection health for: ${description}`);
     const healthCheck = await validateConnectionHealth(manager);
     
     if (!healthCheck.canRead) {
-      console.error(`❌ Connection health check failed - no read access: ${healthCheck.error}`);
+      logger.error(`Connection health check failed - no read access: ${healthCheck.error}`);
       return {
         success: false,
         error: `Database connection failed: ${healthCheck.error}`,
@@ -213,13 +214,13 @@ export const executeDurableWrite = async (
     }
     
     if (!healthCheck.canWrite) {
-      console.warn(`⚠️ Connection health check failed - no write access: ${healthCheck.error}`);
+      logger.warn(`Connection health check failed - no write access: ${healthCheck.error}`);
       
       // Attempt recovery before failing
       const recoverySuccessful = await attemptConnectionRecovery(manager, description);
       
       if (!recoverySuccessful) {
-        console.error(`❌ Connection recovery failed for: ${description}`);
+        logger.error(`Connection recovery failed for: ${description}`);
         return {
           success: false,
           error: `Write capability corrupted and recovery failed: ${healthCheck.error}. Try refreshing the page.`,
@@ -227,12 +228,12 @@ export const executeDurableWrite = async (
         };
       }
       
-      console.log(`✓ Connection recovery successful for: ${description}`);
+      logger.info(`Connection recovery successful for: ${description}`);
       
       // Verify recovery was successful with another health check
       const postRecoveryHealth = await validateConnectionHealth(manager);
       if (!postRecoveryHealth.canWrite) {
-        console.error(`❌ Connection still corrupted after recovery: ${postRecoveryHealth.error}`);
+        logger.error(`Connection still corrupted after recovery: ${postRecoveryHealth.error}`);
         return {
           success: false,
           error: `Write capability still corrupted after recovery. Please refresh the page.`,
@@ -241,7 +242,7 @@ export const executeDurableWrite = async (
       }
     }
 
-    console.log(`✓ Connection health validated for: ${description}`);
+    logger.debug(`Connection health validated for: ${description}`);
 
     // PHASE 2: Decide whether we are leader (direct DB access) or client (proxy via leader)
     // If we have a direct DB handle, we're the leader; otherwise we're a client
@@ -274,7 +275,7 @@ export const executeDurableWrite = async (
           await conn.query('CHECKPOINT');
 
           const duration = performance.now() - startTime;
-          console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
+          logger.info(`${description} completed in ${duration.toFixed(2)}ms`);
           
           // Notify about successful commit
           if (commitCallback) {
@@ -291,24 +292,24 @@ export const executeDurableWrite = async (
                                   error.message?.includes('TransactionContext');
           
           if (isWriteModeError) {
-            console.error(`🚨 Write-mode corruption detected during ${description}:`, error.message);
+            logger.error(`Write-mode corruption detected during ${description}:`, error.message);
             
             // Try recovery if this is our first attempt
             if (attempt === 0) {
-              console.log(`🔧 Attempting recovery for write-mode corruption during ${description}`);
+              logger.info(`Attempting recovery for write-mode corruption during ${description}`);
               const recoverySuccessful = await attemptConnectionRecovery(manager, description);
               
               if (recoverySuccessful) {
                 const delay = 1000; // Give recovery some time
-                console.warn(`${description} write-mode recovery attempted, retrying in ${delay}ms`);
+                logger.warn(`${description} write-mode recovery attempted, retrying in ${delay}ms`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue; // Retry with recovered connection
               } else {
-                console.error(`❌ Recovery failed for ${description}`);
+                logger.error(`Recovery failed for ${description}`);
                 break; // Exit retry loop - recovery failed
               }
             } else {
-              console.error(`❌ Write-mode corruption persisted after recovery for ${description}`);
+              logger.error(`Write-mode corruption persisted after recovery for ${description}`);
               break; // Exit retry loop - already tried recovery
             }
           }
@@ -316,7 +317,7 @@ export const executeDurableWrite = async (
           const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
           if (isRetryable && attempt < retryAttempts) {
             const delay = Math.pow(2, attempt) * 500;
-            console.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
+            logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
@@ -338,7 +339,7 @@ export const executeDurableWrite = async (
         await manager.executeQuery('CHECKPOINT', [], 'rw');
 
         const duration = performance.now() - startTime;
-        console.log(`✓ ${description} completed in ${duration.toFixed(2)}ms`);
+        logger.info(`${description} completed in ${duration.toFixed(2)}ms`);
         
         // Notify about successful commit
         if (commitCallback) {
@@ -355,24 +356,24 @@ export const executeDurableWrite = async (
                                 error.message?.includes('TransactionContext');
         
         if (isWriteModeError) {
-          console.error(`🚨 Write-mode corruption detected in client during ${description}:`, error.message);
+          logger.error(`Write-mode corruption detected in client during ${description}:`, error.message);
           
           // Try recovery if this is our first attempt  
           if (attempt === 0) {
-            console.log(`🔧 Attempting client recovery for write-mode corruption during ${description}`);
+            logger.info(`Attempting client recovery for write-mode corruption during ${description}`);
             const recoverySuccessful = await attemptConnectionRecovery(manager, description);
             
             if (recoverySuccessful) {
               const delay = 1000; // Give recovery some time
-              console.warn(`${description} client write-mode recovery attempted, retrying in ${delay}ms`);
+              logger.warn(`${description} client write-mode recovery attempted, retrying in ${delay}ms`);
               await new Promise(resolve => setTimeout(resolve, delay));
               continue; // Retry with recovered connection
             } else {
-              console.error(`❌ Client recovery failed for ${description}`);
+              logger.error(`Client recovery failed for ${description}`);
               break; // Exit retry loop - recovery failed
             }
           } else {
-            console.error(`❌ Client write-mode corruption persisted after recovery for ${description}`);
+            logger.error(`Client write-mode corruption persisted after recovery for ${description}`);
             break; // Exit retry loop - already tried recovery
           }
         }
@@ -380,7 +381,7 @@ export const executeDurableWrite = async (
         const isRetryable = /database.*locked|busy|unavailable/i.test(error.message || '');
         if (isRetryable && attempt < retryAttempts) {
           const delay = Math.pow(2, attempt) * 500;
-          console.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
+          logger.warn(`${description} failed (attempt ${attempt + 1}/${retryAttempts + 1}), retrying in ${delay}ms:`, error.message);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -390,13 +391,13 @@ export const executeDurableWrite = async (
 
     // If we get here, all attempts failed
     const duration = performance.now() - startTime;
-    console.error(`✗ ${description} failed after ${duration.toFixed(2)}ms:`, lastError);
+    logger.error(`${description} failed after ${duration.toFixed(2)}ms:`, lastError);
 
     return { success: false, error: lastError?.message || String(lastError), duration };
 
   } catch (error: any) {
     const duration = performance.now() - startTime;
-    console.error(`✗ ${description} failed after ${duration.toFixed(2)}ms:`, error);
+    logger.error(`${description} failed after ${duration.toFixed(2)}ms:`, error);
     
     return {
       success: false,
@@ -580,7 +581,7 @@ export const createTableFromFileWithSchema = async (
           castWarnings: castWarnings.length > 0 ? castWarnings : undefined
         };
       } catch (warningError) {
-        console.warn('Could not check for casting warnings:', warningError);
+        logger.warn('Could not check for casting warnings:', warningError);
         // Return success even if we can't check warnings
         return result;
       }
@@ -589,7 +590,7 @@ export const createTableFromFileWithSchema = async (
     return result;
   } catch (error: any) {
     // If custom schema fails, try fallback to auto-detection
-    console.warn(`Custom schema failed for ${fileName}, falling back to auto-detection:`, error.message);
+    logger.warn(`Custom schema failed for ${fileName}, falling back to auto-detection:`, error.message);
     
     const fallbackResult = await createTableFromFile(tableName, fileName, fileExtension);
     
@@ -639,7 +640,7 @@ export async function checkDatabaseRecovery(): Promise<void> {
           );
           // If we can query system tables successfully, the database is in a good state
         } catch (systemTableError) {
-          console.log('Could not query system tables:', systemTableError);
+          logger.debug('Could not query system tables:', systemTableError);
         }
         
         // For now, we'll show a general recovery success message if OPFS database exists
@@ -665,11 +666,11 @@ export async function checkDatabaseRecovery(): Promise<void> {
         }
       } catch (error) {
         // If we can't check recovery state, that's okay - just log it
-        console.log('Could not check database recovery state:', error);
+        logger.debug('Could not check database recovery state:', error);
       }
     }
   } catch (error) {
-    console.warn('Error checking database recovery:', error);
+    logger.warn('Error checking database recovery:', error);
   }
 }
 
@@ -728,7 +729,7 @@ export async function performConnectionDiagnostics(): Promise<{
         databaseTables = result.toArray().map((row: any) => row.table_name);
       }
     } catch (error) {
-      console.warn('Could not retrieve table list for diagnostics:', error);
+      logger.warn('Could not retrieve table list for diagnostics:', error);
     }
     
     const diagnostics = {
@@ -739,11 +740,11 @@ export async function performConnectionDiagnostics(): Promise<{
       databaseTables
     };
     
-    console.log('📊 Connection diagnostics:', { health, diagnostics });
+    logger.debug('Connection diagnostics:', { health, diagnostics });
     
     return { health, diagnostics };
   } catch (error) {
-    console.error('Failed to perform connection diagnostics:', error);
+    logger.error('Failed to perform connection diagnostics:', error);
     
     return {
       health: {
@@ -786,7 +787,7 @@ export async function forceConnectionRecovery(description = 'Manual recovery'): 
     const manager = DuckDBManager.getInstance();
     return await attemptConnectionRecovery(manager, description);
   } catch (error) {
-    console.error('Force connection recovery failed:', error);
+    logger.error('Force connection recovery failed:', error);
     return false;
   }
 }

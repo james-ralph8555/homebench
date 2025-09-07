@@ -15,6 +15,7 @@ import {
   QueryCancelledError,
   LeaderCrashError
 } from './types';
+import { logger } from '@/lib/logger';
 // Note: ArrowTable import will be handled at runtime to avoid bundling issues
 
 // =============================================================================
@@ -38,15 +39,15 @@ const maxReconnectAttempts = 5;
 export async function initializeClient(
   requestConnection: (callback: (port: MessagePort) => void) => void
 ): Promise<void> {
-  console.log('📡 Initializing client connection...');
+  logger.debug('Initializing client connection...');
   
   connectionRequestor = requestConnection;
   
   try {
     await attemptConnection();
-    console.log('✓ Client connection initialized');
+    logger.info('Client connection initialized');
   } catch (error) {
-    console.warn('Client connection failed, using fallback mode:', error);
+    logger.warn('Client connection failed, using fallback mode:', error);
     // For now, just continue without a real connection
     // Queries will fail gracefully and show appropriate errors
   }
@@ -82,7 +83,7 @@ async function attemptConnection(): Promise<void> {
 function setupPortHandling(): void {
   if (!port) return;
   
-  console.log('📡 Client setting up port message handling');
+  logger.debug('Client setting up port message handling');
   
   port.onmessage = (event: MessageEvent<SqlResponse>) => {
     const response = event.data;
@@ -131,7 +132,7 @@ function setupPortHandling(): void {
  * Handle connection loss and attempt reconnection
  */
 async function handleConnectionLoss(): Promise<void> {
-  console.warn('📡 Lost connection to leader, attempting reconnection...');
+  logger.warn('Lost connection to leader, attempting reconnection...');
   
   // Mark all in-flight queries as failed
   const crashError = new LeaderCrashError();
@@ -158,13 +159,13 @@ async function handleConnectionLoss(): Promise<void> {
     setTimeout(async () => {
       try {
         await attemptConnection();
-        console.log('✓ Reconnected to new leader');
+        logger.info('Reconnected to new leader');
       } catch (error) {
-        console.error(`Failed to reconnect (attempt ${reconnectAttempts}):`, error);
+        logger.error(`Failed to reconnect (attempt ${reconnectAttempts}):`, error);
         if (reconnectAttempts < maxReconnectAttempts) {
           await handleConnectionLoss(); // Retry
         } else {
-          console.error('Max reconnection attempts reached');
+          logger.error('Max reconnection attempts reached');
         }
       }
     }, backoffDelay);

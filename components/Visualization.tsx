@@ -19,6 +19,7 @@ import {
 } from '@/lib/chartPerformanceUtils';
 import { getTables } from '@/lib/duckdbManager';
 import { executeReadQuery } from '@/lib/durableOperations';
+import { logger } from '@/lib/logger';
 
 interface VisualizationProps {
   data?: ArrowTable | null;
@@ -76,7 +77,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
           setSelectedTable(tableList[0]);
         }
       } catch (error) {
-        console.error('Failed to fetch tables:', error);
+        logger.error('Failed to fetch tables:', error);
       }
     };
     fetchTables();
@@ -94,7 +95,7 @@ export const Visualization: React.FC<VisualizationProps> = ({
           setTableData(result as ArrowTable);
           setIsDataLimited(totalRows > chartRowLimit);
         } catch (error) {
-          console.error(`Failed to fetch data for table ${selectedTable}:`, error);
+          logger.error(`Failed to fetch data for table ${selectedTable}:`, error);
           setChartError(new PlotlyTransformError(`Failed to load data for table: ${selectedTable}`, 'INVALID_DATA'));
           setTableData(null);
           setIsDataLimited(false);

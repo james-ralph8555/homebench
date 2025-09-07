@@ -7,6 +7,7 @@ import { markTableAsUploaded } from '@/lib/tableMetadataStore';
 import { createTableFromFile, createTableFromFileWithSchema } from '@/lib/durableOperations';
 import { SchemaPreviewInline } from './SchemaPreviewInline';
 import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
+import { logger } from '@/lib/logger';
 
 interface FileUploaderProps {
   onFileUploaded?: (fileName: string) => void;
@@ -80,7 +81,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
     // Check if file is already registered and unregister it
     try {
       await db.dropFile(file.name);
-      console.log(`🧽 Dropped existing file registration: ${file.name}`);
+      logger.debug(`Dropped existing file registration: ${file.name}`);
     } catch {
       // File wasn't registered, that's fine
     }
@@ -122,7 +123,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       const rowsText = result.rowsAffected ? ` (${result.rowsAffected} rows)` : '';
       
       setMessage(`Successfully loaded ${file.name} as table "${tableName}"${rowsText} in ${duration.toFixed(0)}ms`);
-      console.log(`Table "${tableName}" created from ${file.name} with durable persistence in ${duration.toFixed(2)}ms`);
+      logger.info(`Table "${tableName}" created from ${file.name} with durable persistence in ${duration.toFixed(2)}ms`);
       
       onFileUploaded?.(tableName);
     } catch (e: any) {
@@ -137,7 +138,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       }
       
       setMessage(errorMsg);
-      console.error(`❌ File upload failed after ${duration.toFixed(2)}ms:`, e);
+      logger.error(`File upload failed after ${duration.toFixed(2)}ms:`, e);
     } finally {
       setIsUploading(false);
     }
@@ -184,13 +185,13 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       }
       
       setMessage(successMessage);
-      console.log(`Table "${tableName}" created from ${pendingFile.name} with custom schema in ${duration.toFixed(2)}ms`);
+      logger.info(`Table "${tableName}" created from ${pendingFile.name} with custom schema in ${duration.toFixed(2)}ms`);
       
       onFileUploaded?.(tableName);
     } catch (e: any) {
       const duration = performance.now() - startTime;
       setMessage(`Error loading ${pendingFile.name} with custom schema: ${e.message}`);
-      console.error(`❌ Schema-based file upload failed after ${duration.toFixed(2)}ms:`, e);
+      logger.error(`Schema-based file upload failed after ${duration.toFixed(2)}ms:`, e);
     } finally {
       setIsUploading(false);
       setPendingFile(null);

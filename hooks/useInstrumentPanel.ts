@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { getDatabaseFileSize } from '@/lib/opfsUtils';
 import { forceConnectionRecovery, performConnectionDiagnostics } from '@/lib/durableOperations';
+import { logger } from '@/lib/logger';
 
 export interface InstrumentPanelState {
   // Database info
@@ -53,7 +54,7 @@ export function useInstrumentPanel(): InstrumentPanelState {
         const size = await getDatabaseFileSize();
         setDatabaseSize(size);
       } catch (error) {
-        console.warn('Failed to get database size:', error);
+        logger.warn('Failed to get database size:', error);
         setDatabaseSize(null);
       }
     };
@@ -132,17 +133,17 @@ export function useInstrumentPanel(): InstrumentPanelState {
     
     setIsRequestingLock(true);
     try {
-      console.log('🔄 Requesting database lock...');
+      logger.debug('Requesting database lock...');
       const success = await forceConnectionRecovery('User requested database control');
       
       if (success) {
-        console.log('✅ Successfully recovered database control');
+        logger.info('Successfully recovered database control');
         // The context will update automatically through polling
       } else {
-        console.warn('⚠️ Failed to recover database control');
+        logger.warn('Failed to recover database control');
       }
     } catch (error) {
-      console.error('❌ Error requesting database lock:', error);
+      logger.error('Error requesting database lock:', error);
     } finally {
       setIsRequestingLock(false);
     }
@@ -152,9 +153,9 @@ export function useInstrumentPanel(): InstrumentPanelState {
   const performDiagnosticsAction = useCallback(async () => {
     try {
       const diagnostics = await performConnectionDiagnostics();
-      console.log('📊 Database diagnostics:', diagnostics);
+      logger.debug('Database diagnostics:', diagnostics);
     } catch (error) {
-      console.error('Failed to perform diagnostics:', error);
+      logger.error('Failed to perform diagnostics:', error);
     }
   }, []);
 

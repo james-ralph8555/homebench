@@ -16,6 +16,8 @@ export async function getDatabaseFileSize(): Promise<number | null> {
 }
 
 // Download database file
+import { logger } from '@/lib/logger';
+
 export async function downloadSavedSessionAsDuckDB(): Promise<void> {
   const { isOpfsSupported } = await import('./duckdbManager');
   if (!isOpfsSupported()) {
@@ -43,7 +45,7 @@ export async function downloadSavedSessionAsDuckDB(): Promise<void> {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    console.log(`✓ Downloaded session database: ${downloadName} (${formatFileSize(file.size)})`);
+    logger.info(`Downloaded session database: ${downloadName} (${formatFileSize(file.size)})`);
   } catch (error: any) {
     if (error.name === 'NotFoundError') {
       throw new Error('No saved session database found. Upload some data first.');
@@ -72,7 +74,7 @@ export async function wipeOpfsData(): Promise<void> {
     // First, close the database connection to release any locks
     const manager = DuckDBManager.getInstance();
     await manager.reset();
-    console.log('✓ Database connections closed');
+    logger.info('Database connections closed');
     
     // Small delay to ensure database is fully closed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -86,7 +88,7 @@ export async function wipeOpfsData(): Promise<void> {
     }
     
     if (itemsToDelete.length === 0) {
-      console.log('✓ OPFS already empty');
+      logger.info('OPFS already empty');
       return;
     }
     
@@ -96,16 +98,16 @@ export async function wipeOpfsData(): Promise<void> {
       try {
         await opfsRoot.removeEntry(name, { recursive: true });
         deletedCount++;
-        console.log(`✓ Deleted OPFS item: ${name}`);
+        logger.info(`Deleted OPFS item: ${name}`);
       } catch (error) {
-        console.warn(`Failed to delete OPFS item ${name}:`, error);
+        logger.warn(`Failed to delete OPFS item ${name}:`, error);
         // Don't throw on individual file failures
       }
     }
     
-    console.log(`✓ OPFS wiped successfully (${deletedCount}/${itemsToDelete.length} items deleted)`);
+    logger.info(`OPFS wiped successfully (${deletedCount}/${itemsToDelete.length} items deleted)`);
   } catch (error: any) {
-    console.error('Failed to wipe OPFS:', error);
+    logger.error('Failed to wipe OPFS:', error);
     throw new Error(`Failed to wipe OPFS: ${error.message || error}`);
   }
 }
@@ -138,7 +140,7 @@ export async function listOpfsFiles(): Promise<Array<{name: string, size: number
           });
         }
       } catch (error) {
-        console.warn(`Could not get info for ${name}:`, error);
+        logger.warn(`Could not get info for ${name}:`, error);
         files.push({
           name,
           size: 0,
@@ -149,7 +151,7 @@ export async function listOpfsFiles(): Promise<Array<{name: string, size: number
     
     return files.sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
-    console.warn('Could not list OPFS files:', error);
+    logger.warn('Could not list OPFS files:', error);
     return [];
   }
 }

@@ -14,6 +14,7 @@
  */
 
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -105,7 +106,7 @@ async function getDuckDbBundle(options: DatabaseOptions = {}): Promise<duckdb.Du
   
   // Select a bundle based on browser checks
   const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
-  console.log('Selected DuckDB bundle:', bundle);
+  logger.debug('Selected DuckDB bundle:', bundle);
   return bundle;
 }
 
@@ -122,41 +123,41 @@ async function precompileWasmModule(wasmUrl: string, retries: number = 3): Promi
   
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`🔄 Precompiling WASM module (attempt ${attempt + 1}/${retries}):`, wasmUrl);
+      logger.debug(`Precompiling WASM module (attempt ${attempt + 1}/${retries}):`, wasmUrl);
       
       // Check if streaming compilation is supported
       if (typeof WebAssembly.compileStreaming === 'function') {
-        console.log('✓ Using WebAssembly.compileStreaming for optimal performance');
+        logger.debug('Using WebAssembly.compileStreaming for optimal performance');
         const response = fetch(wasmUrl);
         const wasmModule = await WebAssembly.compileStreaming(response);
-        console.log('✓ WASM module compiled successfully via streaming');
+        logger.debug('WASM module compiled successfully via streaming');
         return wasmModule;
       } else {
         // Fallback to traditional compilation
-        console.log('⚠️ Using fallback WASM compilation (streaming not supported)');
+        logger.debug('Using fallback WASM compilation (streaming not supported)');
         const response = await fetch(wasmUrl);
         if (!response.ok) {
           throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
         }
         const arrayBuffer = await response.arrayBuffer();
         const wasmModule = await WebAssembly.compile(arrayBuffer);
-        console.log('✓ WASM module compiled successfully via fallback');
+        logger.debug('WASM module compiled successfully via fallback');
         return wasmModule;
       }
     } catch (error) {
       lastError = error as Error;
-      console.warn(`❌ WASM compilation attempt ${attempt + 1} failed:`, error);
+      logger.warn(`WASM compilation attempt ${attempt + 1} failed:`, error);
       
       // Exponential backoff for retries
       if (attempt < retries - 1) {
         const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s delays
-        console.log(`⏳ Retrying in ${delay}ms...`);
+        logger.debug(`Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   
-  console.error('❌ All WASM compilation attempts failed:', lastError);
+  logger.error('All WASM compilation attempts failed:', lastError);
   return null; // Return null instead of throwing to allow graceful fallback
 }
 
@@ -176,11 +177,11 @@ async function precompileWasmModule(wasmUrl: string, retries: number = 3): Promi
  * @throws {Error} If DuckDB initialization fails completely
  */
 export async function initializeDatabase(options: DatabaseOptions = {}): Promise<DatabaseState> {
-  console.log('Initializing DuckDB...');
+  logger.debug('Initializing DuckDB...');
   
   // Step 1: Check OPFS support
   const opfsSupported = isOpfsSupported();
-  console.log('OPFS supported:', opfsSupported);
+  logger.debug('OPFS supported:', opfsSupported);
   
   try {
     // Step 2: Get DuckDB bundle and create worker
@@ -202,15 +203,15 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     // This helps with subsequent page loads by warming the browser cache
     try {
       precompileWasmModule(bundle.mainModule!).catch(error => {
-        console.warn('WASM precompilation failed (background process):', error);
+        logger.warn('WASM precompilation failed (background process):', error);
       });
     } catch (error) {
-      console.warn('Failed to start WASM precompilation:', error);
+      logger.warn('Failed to start WASM precompilation:', error);
     }
 
     // Step 4: Create initial database instance
     let db = await createDatabaseInstance();
-    console.log('DuckDB instantiated');
+    logger.debug('DuckDB instantiated');
 
     // DuckDB WASM will handle OPFS registration automatically when opening with opfs:// path
     
@@ -220,7 +221,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     
     try {
       if (opfsSupported && dbPath.startsWith('opfs://')) {
-        console.log('Attempting to open OPFS database:', dbPath);
+        logger.debug('Attempting to open OPFS database:', dbPath);
         
         try {
           await db.open({
@@ -232,9 +233,9 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
           const testConn = await db.connect();
           try {
             await testConn.query('CHECKPOINT');
-            console.log('OPFS database opened successfully with write access');
+            logger.info('OPFS database opened successfully with write access');
           } catch (checkpointError) {
-            console.warn('OPFS database opened but checkpoint failed:', checkpointError);
+            logger.warn('OPFS database opened but checkpoint failed:', checkpointError);
           } finally {
             await testConn.close();
           }
@@ -243,7 +244,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
           if (walError.message?.includes('Table with name') && walError.message?.includes('already exists') && 
               walError.message?.includes('replaying WAL file')) {
             
-            console.warn('WAL recovery conflict detected, attempting to resolve by clearing corrupted WAL...', walError.message);
+            logger.warn('WAL recovery conflict detected, attempting to resolve by clearing corrupted WAL...', walError.message);
             
             try {
               // Try to clear the problematic WAL file by opening with a fresh database
@@ -252,13 +253,13 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
               
               // Create a new instance and try to open with recovery
               db = await createDatabaseInstance();
-              console.log('Created fresh DuckDB instance for WAL recovery');
+              logger.debug('Created fresh DuckDB instance for WAL recovery');
               
               // Remove the corrupted OPFS database to start fresh
               // This is safer than trying to manually fix WAL conflicts
               const { wipeOpfsData } = await import('./opfsUtils');
               await wipeOpfsData();
-              console.log('Cleared corrupted OPFS data to resolve WAL conflict');
+              logger.info('Cleared corrupted OPFS data to resolve WAL conflict');
               
               // Now open a fresh database
               await db.open({
@@ -266,7 +267,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
                 accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
               });
               
-              console.log('✓ WAL conflict resolved - opened fresh database');
+              logger.info('WAL conflict resolved - opened fresh database');
               
               // Notify about WAL recovery via recovery callback if available
               try {
@@ -276,10 +277,10 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
                   'warning'
                 );
               } catch (notificationError) {
-                console.log('Could not send recovery notification:', notificationError);
+                logger.debug('Could not send recovery notification:', notificationError);
               }
             } catch (recoveryError) {
-              console.warn('WAL recovery failed, falling back to in-memory database:', recoveryError);
+              logger.warn('WAL recovery failed, falling back to in-memory database:', recoveryError);
               throw recoveryError; // This will trigger the fallback below
             }
           } else {
@@ -288,7 +289,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
           }
         }
       } else {
-        console.log('OPFS not supported or not requested, using in-memory database');
+        logger.info('OPFS not supported or not requested, using in-memory database');
         actuallyUsingOpfs = false;
         await db.open({
           path: ':memory:',
@@ -296,7 +297,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
         });
       }
     } catch (error) {
-      console.warn('Failed to open OPFS database, falling back to in-memory:', error);
+      logger.warn('Failed to open OPFS database, falling back to in-memory:', error);
       actuallyUsingOpfs = false;
       
       // Make sure we have a clean database instance for in-memory fallback
@@ -304,7 +305,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
         await db.terminate();
         db = await createDatabaseInstance();
       } catch (terminateError) {
-        console.warn('Failed to terminate database for fallback:', terminateError);
+        logger.warn('Failed to terminate database for fallback:', terminateError);
       }
       
       await db.open({
@@ -313,7 +314,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
       });
     }
     
-    console.log('Database initialized successfully');
+    logger.info('Database initialized successfully');
     
     return {
       db,
@@ -321,7 +322,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     };
     
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    logger.error('Failed to initialize database:', error);
     throw new Error(`Database initialization failed: ${error}`);
   }
 }
@@ -344,7 +345,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
  */
 export async function closeDatabase(dbState: DatabaseState): Promise<void> {
   if (!dbState.db) {
-    console.log('Database already closed or not initialized');
+    logger.debug('Database already closed or not initialized');
     return;
   }
   
@@ -353,7 +354,7 @@ export async function closeDatabase(dbState: DatabaseState): Promise<void> {
     const conn = await dbState.db.connect();
     try {
       await conn.query('CHECKPOINT');
-      console.log('Database flushed');
+      logger.info('Database flushed');
     } catch (error) {
       console.warn('Failed to flush database:', error);
     } finally {
@@ -363,9 +364,9 @@ export async function closeDatabase(dbState: DatabaseState): Promise<void> {
     // Terminate the database and worker
     await dbState.db.terminate();
     dbState.db = null;
-    console.log('Database closed');
+    logger.info('Database closed');
   } catch (error) {
-    console.error('Error closing database:', error);
+    logger.error('Error closing database:', error);
     throw error;
   }
 }
@@ -425,11 +426,11 @@ export class DuckDBManager {
     const { getMultiTabState } = await import('./multitab/boot');
     const multiTabState = getMultiTabState();
     
-    console.log(`🔍 Multi-tab state: isLeader=${multiTabState.isLeader}, initialized=${multiTabState.isInitialized}`);
+    logger.debug(`Multi-tab state: isLeader=${multiTabState.isLeader}, initialized=${multiTabState.isInitialized}`);
     
     if (multiTabState.isLeader) {
       // Leader tab: initialize the database directly and store it
-      console.log('✓ Database manager initialized as LEADER');
+      logger.info('Database manager initialized as LEADER');
       const directDbState = await initializeDatabase({
         databasePath: 'opfs://homebench.db'
       });
@@ -449,7 +450,7 @@ export class DuckDBManager {
       }
     } else {
       // Client tab: we connect through the multi-tab system
-      console.log('✓ Database manager initialized as CLIENT');
+      logger.info('Database manager initialized as CLIENT');
       this.dbState = {
         db: null, // Clients don't have direct DB access
         isOpfsSupported: true // Shared through leader
@@ -465,14 +466,14 @@ export class DuckDBManager {
     const handleBeforeUnload = () => {
       if (this.dbState?.db) {
         // Fire-and-forget checkpoint and flush on page unload
-        this.checkpointAndFlushDatabase().catch(console.error);
+        this.checkpointAndFlushDatabase().catch(logger.error);
       }
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && this.dbState?.db) {
         // Fire-and-forget flush when page becomes hidden
-        this.flushDatabase().catch(console.error);
+        this.flushDatabase().catch(logger.error);
       }
     };
 
@@ -482,7 +483,7 @@ export class DuckDBManager {
     // Periodic flush every 3 seconds as safety net
     setInterval(() => {
       if (this.dbState?.db) {
-        this.flushDatabase().catch(console.error);
+        this.flushDatabase().catch(logger.error);
       }
     }, 3000);
   }
@@ -493,7 +494,7 @@ export class DuckDBManager {
     const connection = await this.dbState.db.connect();
     try {
       await connection.query('CHECKPOINT');
-      console.log('✓ Database checkpointed');
+      logger.info('Database checkpointed');
     } finally {
       await connection.close();
     }
@@ -504,9 +505,9 @@ export class DuckDBManager {
     
     try {
       await this.dbState.db.flushFiles();
-      console.log('✓ Database flushed to OPFS');
+      logger.info('Database flushed to OPFS');
     } catch (error) {
-      console.warn('Failed to flush database:', error);
+      logger.warn('Failed to flush database:', error);
     }
   }
 
@@ -517,9 +518,9 @@ export class DuckDBManager {
     try {
       await connection.query('CHECKPOINT');
       await this.dbState.db.flushFiles();
-      console.log('✓ Database checkpointed and flushed to OPFS');
+      logger.info('Database checkpointed and flushed to OPFS');
     } catch (error) {
-      console.warn('Failed to checkpoint and flush database:', error);
+      logger.warn('Failed to checkpoint and flush database:', error);
     } finally {
       await connection.close();
     }
@@ -640,4 +641,3 @@ export const getTables = async (): Promise<string[]> => {
   );
   return result.toArray().map((row: any) => row.table_name);
 };
-

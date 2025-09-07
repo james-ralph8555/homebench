@@ -8,11 +8,6 @@ High‑Impact Performance
   - Action: Rely on Next defaults; keep `@next/bundle-analyzer` on demand. Keep `compress` (Next enables gzip by default on server, but static export serves via CDN). Keep wasm rule if truly needed, but verify — DuckDB assets are served from `public/duckdb`, not bundled.
   - File: next.config.js
 
-- Aggressive console logging in hot paths (multi‑tab, durable ops).
-  - Why: Logs with emojis across `lib/multitab/*`, `lib/durableOperations.ts`, `lib/duckdbManager.ts`, `contexts/DuckDBContext.tsx`, and hooks add layout thrash and cost in production.
-  - Action: Introduce a tiny logger (`lib/logger.ts`) with log levels (debug/info/warn) gated by `process.env.NODE_ENV !== 'production'` or a `DEBUG` flag. Replace bare `console.*` with logger calls; silence debug logs in production builds.
-  - Files: lib/multitab/*.ts, lib/durableOperations.ts, lib/duckdbManager.ts, contexts/DuckDBContext.tsx, hooks/useInstrumentPanel.ts
-
 - ResultsGrid CSS: Import only one AG Grid theme.
   - Why: `components/ResultsGrid.tsx` imports both `ag-theme-alpine.css` and `ag-theme-quartz.css`, but only one is used at runtime. Importing both increases CSS payload.
   - Action: Pick a single theme (e.g., Quartz Dark + Light variants) and drop unused theme import.
@@ -77,7 +72,7 @@ Dead Code & Redundancy
   - Findings: Several comments indicate “legacy mode” and temporary warnings; no actionable TODO tags, but stale comments may mislead.
   - Action: Trim legacy notes once multi‑tab path is default; keep concise rationale comments.
 
-Build & DX
+Build & DX (CloudFront + Cloudflare)
 - Start script builds on every `npm start`.
   - Why: `prestart` runs `npm run build`, which is wasteful in deployed environments where artifacts are prebuilt.
   - Action: Remove `prestart` or guard by CI/ENV (e.g., only run in dev Docker). Prefer explicit `npm run build && npm start` in docs.
@@ -85,13 +80,30 @@ Build & DX
 
 - copy‑duckdb script coupling.
   - Why: Script reads version from `node_modules`, layout hardcodes it.
-  - Action: Expose version via `NEXT_PUBLIC_DUCKDB_VERSION` at build time; script writes to `public/duckdb/${ver}` only (avoid writing into `out/` post‑build; Next export will copy `public/`), then drop post‑build copy into `out`.
+  - Action: Expose version via `NEXT_PUBLIC_DUCKDB_VERSION` at build time; script writes to `public/duckdb/${ver}` only (avoid writing into `out/` post‑build; Next export will copy `public/`). Remove post‑build copy into `out`.
   - Files: scripts/copy-duckdb.js, next.config.js (ensure static asset inclusion)
 
-- Webpack custom compression.
-  - Why: When statically exporting and serving via CDN (Cloudflare/CloudFront), CDN should handle Brotli and Gzip. Double‑compressing increases build time and repo noise (`.gz/.br` committed in `out/`).
-  - Action: Remove `compression-webpack-plugin` usage for client bundles; keep WASM compression via copy script if CDN lacks automatic.
-  - File: next.config.js
+- Webpack and CDN compression (CloudFront + Cloudflare, static export).
+  - Context: Site is a static Next.js export served behind CloudFront (origin: static host/S3) and fronted by Cloudflare.
+  - Why: Both CDNs handle gzip/brotli at the edge; double‑compressing during bundling increases build time with minimal benefit and can complicate caching. For versioned assets, long‑lived immutable caching is preferred over content negotiation at origin.
+  - Action:
+    - Remove `compression-webpack-plugin` entirely; rely on CDN edge compression.
+    - Prefer not generating `.gz`/`.br` artifacts in `scripts/copy-duckdb.js`. If your CloudFront distribution and Cloudflare zone are configured to compress `application/wasm`, skip precompression (faster builds). If not, keep precompressed WASM only and ensure `Vary: Accept-Encoding` is set (already handled in `customHeaders.yaml`).
+    - Keep very long `Cache-Control` on `js/css/wasm` and other static assets with `immutable` (see `customHeaders.yaml`). Ensure Cloudflare “Respect origin headers” and CloudFront cache policies are aligned.
+  - Files: next.config.js, scripts/copy-duckdb.js, customHeaders.yaml
+
+CDN‑Aware Notes (CloudFront + Cloudflare)
+- Caching model:
+  - Use versioned paths for DuckDB assets: `/duckdb/<version>/*`. With `immutable` and 1‑year TTL, deploys are safe via version bumps.
+  - Keep `Vary: Accept-Encoding` for `js/css/wasm`. `customHeaders.yaml` already sets this; ensure both CDNs pass it through.
+- Compression:
+  - Prefer CDN edge compression for `js/css/json/svg/wasm`. Validate that both CDNs compress `application/wasm`; if not, ship a `.br` for wasm only.
+- ETags/validation:
+  - Static export artifacts can keep `generateEtags: false` in Next; CloudFront/Cloudflare will add/forward their own validators as needed. Primary cache control should rely on content‑hashing/versioned paths + `immutable`.
+- HTML and documents:
+  - Do not cache HTML long term. `customHeaders.yaml` sets no‑cache for `*.html`; configure Cloudflare Page Rules/Cache Rules and CloudFront Cache Policy to respect origin for HTML.
+- Preload hints:
+  - With edge caches in front, `<link rel="preload">` for WASM is fine but prefetching `.br/.gz` variants is unnecessary when CDNs perform content negotiation. Keep the preload for the primary `.wasm`; drop prefetches in code when refactoring.
 
 UI/UX Performance
 - Visualization lazy loading: Good use of `next/dynamic` + Suspense.
@@ -129,10 +141,10 @@ Candidate Tasks (Suggested PRs)
 - PR 4: Pause background timers and polling when tab is hidden; reduce periodic flush frequency; centralize DB version.
 - PR 5: Remove `multiTabQuery.executeWriteQuery` and, if agreed, remove `lib/autoSaver.ts` plus tests (or mark clearly deprecated).
 - PR 6: ResultsGrid CSS/theme imports: keep a single theme; switch number formatting to `Intl.NumberFormat`.
+- PR 7: CDN configs: confirm CloudFront compression policy includes `application/wasm`; if yes, disable precompression in `scripts/copy-duckdb.js`. Ensure Cloudflare Cache Rules respect origin Cache‑Control for versioned assets and do not cache HTML.
 
 Notes and Risks
 - Changing `sideEffects` in webpack config can break packages that rely on side‑effectful modules (CSS-in-JS, polyfills). Removing our override reduces that risk.
 - Silencing logs must retain critical warnings/errors. Keep `warn`/`error` always enabled.
 - Removing `prestart` may affect current deployment flow; document the new process in README.
 - Pausing timers in hidden tabs may delay perceived “saving” status updates; ensure durable operations checkpoint on completion regardless of timers.
-

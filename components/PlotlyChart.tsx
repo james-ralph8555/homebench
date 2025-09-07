@@ -9,6 +9,7 @@ import {
   applyThemeToLayout,
   PlotlyData 
 } from '@/lib/plotlyTransform';
+import { logger } from '@/lib/logger';
 
 // Dynamic import of Plotly to avoid SSR issues and reduce bundle size
 const PlotlyComponent = React.lazy(() => 
@@ -114,7 +115,7 @@ export const PlotlyChart = React.forwardRef<any, PlotlyChartProps>(({
   // Handle plot interaction events
   const handlePlotlyEvent = useCallback((eventName: string) => {
     return (eventData: any) => {
-      console.log(`Plotly ${eventName}:`, eventData);
+      logger.debug(`Plotly ${eventName}:`, eventData);
       // Could extend this to handle specific interactions
     };
   }, []);

@@ -25,11 +25,11 @@ async function copyFileWithCompression(filename) {
   
   // Copy original file
   fs.copyFileSync(srcFile, dstFile);
-  console.log(`✓ Copied ${filename}`);
+  console.log(`Copied ${filename}`);
   
   // Skip compression for large WASM files in development to speed up dev server startup
   if (isDev && filename.endsWith('.wasm')) {
-    console.log(`⚡ Skipping compression for ${filename} in development mode`);
+    console.log(`Skipping compression for ${filename} in development mode`);
     return;
   }
   
@@ -52,12 +52,12 @@ async function copyFileWithCompression(filename) {
     );
     
     clearTimeout(timeoutId);
-    console.log(`✓ Generated ${filename}.br`);
+    console.log(`Generated ${filename}.br`);
   } catch (error) {
     if (error.code === 'ABORT_ERR') {
-      console.warn(`⚠ Brotli compression timeout for ${filename} (skipping)`);
+      console.warn(`Brotli compression timeout for ${filename} (skipping)`);
     } else {
-      console.warn(`⚠ Failed to generate ${filename}.br:`, error.message);
+      console.warn(`Failed to generate ${filename}.br:`, error.message);
     }
   }
   
@@ -73,18 +73,18 @@ async function copyFileWithCompression(filename) {
     );
     
     clearTimeout(timeoutId);
-    console.log(`✓ Generated ${filename}.gz`);
+    console.log(`Generated ${filename}.gz`);
   } catch (error) {
     if (error.code === 'ABORT_ERR') {
-      console.warn(`⚠ Gzip compression timeout for ${filename} (skipping)`);
+      console.warn(`Gzip compression timeout for ${filename} (skipping)`);
     } else {
-      console.warn(`⚠ Failed to generate ${filename}.gz:`, error.message);
+      console.warn(`Failed to generate ${filename}.gz:`, error.message);
     }
   }
 }
 
 async function main() {
-  console.log(`📦 Copying DuckDB assets to ${dst} (${isDev ? 'development' : 'production'} mode)`);
+  console.log(`Copying DuckDB assets to ${dst} (${isDev ? 'development' : 'production'} mode)`);
   
   const files = ['duckdb-browser-eh.worker.js', 'duckdb-eh.wasm'];
   
@@ -92,10 +92,10 @@ async function main() {
     await copyFileWithCompression(filename);
   }
   
-  console.log(`🎉 Successfully copied ${files.length} DuckDB assets with compression`);
+  console.log(`Successfully copied ${files.length} DuckDB assets with compression`);
 }
 
 main().catch(error => {
-  console.error('❌ Failed to copy DuckDB assets:', error);
+  console.error('Failed to copy DuckDB assets:', error);
   process.exit(1);
 });

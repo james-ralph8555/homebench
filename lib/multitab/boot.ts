@@ -7,6 +7,7 @@
  */
 
 import { ControlMessage, DEFAULT_MULTITAB_CONFIG, MultiTabConfig, LeaderConnectionError, SqlRequest, SqlResponse } from './types';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // GLOBAL STATE
@@ -34,7 +35,7 @@ let livenessTimer: number | null = null;
  */
 export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void> {
   if (isInitialized) {
-    console.warn('Multi-tab system already initialized');
+    logger.warn('Multi-tab system already initialized');
     return;
   }
 
@@ -44,7 +45,7 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
   // Initialize broadcast channel for control messages
   channel = new BroadcastChannel(config.channelName);
   
-  console.log('🚀 Starting multi-tab DuckDB coordination...');
+  logger.info('Starting multi-tab DuckDB coordination...');
 
   // Set up heartbeat listener before attempting leadership
   setupHeartbeatListener();
@@ -62,7 +63,7 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
     channel.onmessage = (event: MessageEvent<ControlMessage>) => {
       const msg = event.data;
       if (msg?.type === 'hb' && !roleDecided) {
-        console.log('💓 Detected existing leader via heartbeat - becoming client');
+        logger.info('Detected existing leader via heartbeat - becoming client');
         roleDecided = true;
         isLeader = false;
         startClient().then(resolve);
@@ -76,7 +77,7 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
     // Wait for potential heartbeats, then attempt leadership if none found
     setTimeout(() => {
       if (!roleDecided) {
-        console.log('🔍 No heartbeats detected - attempting leadership');
+        logger.info('No heartbeats detected - attempting leadership');
         roleDecided = true;
         attemptLeadership().then(resolve);
       }
@@ -90,11 +91,11 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
  * Attempt to acquire leadership via Web Locks API
  */
 async function attemptLeadership(): Promise<void> {
-  console.log('🔐 Attempting to acquire leadership lock...');
+  logger.info('Attempting to acquire leadership lock...');
   
   // Check if Web Locks API is supported
   if (!('locks' in navigator)) {
-    console.warn('⚠️ Web Locks API not supported - using fallback leader election');
+    logger.warn('Web Locks API not supported - using fallback leader election');
     // Simple fallback: first tab wins (not ideal but functional)
     isLeader = true;
     await startLeader();
@@ -104,16 +105,16 @@ async function attemptLeadership(): Promise<void> {
   try {
     // Query existing locks first
     const lockState = await navigator.locks.query();
-    console.log(`🔍 Current locks:`, lockState.held?.map(l => l.name));
+    logger.debug(`Current locks:`, lockState.held?.map(l => l.name));
     const existingLock = lockState.held?.find(lock => lock.name === config.lockName);
     
     if (existingLock) {
-      console.log('🔒 Leadership lock already held by another tab - becoming client');
+      logger.info('Leadership lock already held by another tab - becoming client');
       isLeader = false;
       await startClient();
       return;
     } else {
-      console.log('🔓 No existing leadership lock found - attempting to acquire');
+      logger.info('No existing leadership lock found - attempting to acquire');
     }
     
     // Try to acquire the lock for the lifetime of this tab
@@ -121,7 +122,7 @@ async function attemptLeadership(): Promise<void> {
       { mode: 'exclusive', ifAvailable: true }, 
       async (lock) => {
         if (lock) {
-          console.log('🎯 Successfully acquired leadership lock');
+          logger.info('Successfully acquired leadership lock');
           isLeader = true;
           await startLeader();
           
@@ -131,7 +132,7 @@ async function attemptLeadership(): Promise<void> {
             // Lock will be automatically released when tab closes
           });
         } else {
-          console.log('🔒 Leadership lock already taken - becoming client');
+          logger.info('Leadership lock already taken - becoming client');
           isLeader = false;
           await startClient();
           return; // Release immediately for clients
@@ -143,9 +144,9 @@ async function attemptLeadership(): Promise<void> {
     // Just wait a moment for the leader/client determination
     await new Promise(resolve => setTimeout(resolve, 100));
   } catch (error) {
-    console.error('❌ Failed to acquire leadership lock:', error);
+    logger.error('Failed to acquire leadership lock:', error);
     // Fallback to client mode
-    console.log('💫 Falling back to client mode');
+    logger.info('Falling back to client mode');
     isLeader = false;
     await startClient();
   }
@@ -167,11 +168,11 @@ function setupHeartbeatListener(): void {
       case 'connect_ack':
         // Leader acknowledged our connection request
         if (leaderPortFactory) {
-          console.log('✓ Received connection acknowledgment from leader');
+          logger.info('Received connection acknowledgment from leader');
           // Create a mock MessagePort since we're using BroadcastChannel directly
           const mockPort = {
             postMessage: (data: any) => {
-              console.log('📡 Client sending query:', data);
+              logger.debug('Client sending query:', data);
               channel.postMessage({ type: 'query', payload: data });
             },
             onmessage: null,
@@ -197,7 +198,7 @@ function setupHeartbeatListener(): void {
         if (!isLeader && mockPortHandler) {
           // Extract the response data from the broadcast message
           const { type, ...responseData } = msg;
-          console.log('📡 Client received query response:', responseData);
+          logger.debug('Client received query response:', responseData);
           mockPortHandler({ data: responseData });
         }
         break;
@@ -217,7 +218,7 @@ function startLivenessMonitor(): void {
     const heartbeatTimeout = config.heartbeatInterval * config.heartbeatGracePeriods;
     
     if (timeSinceLastHeartbeat > heartbeatTimeout) {
-      console.warn('🔄 Leader heartbeat lost, attempting re-election...');
+      logger.warn('Leader heartbeat lost, attempting re-election...');
       
       // Try to become the new leader
       try {
@@ -225,7 +226,7 @@ function startLivenessMonitor(): void {
           { mode: 'exclusive', ifAvailable: true }, 
           async (lock) => {
             if (lock) {
-              console.log('🎯 Elected as new leader after crash');
+              logger.info('Elected as new leader after crash');
               isLeader = true;
               await startLeader();
               
@@ -238,7 +239,7 @@ function startLivenessMonitor(): void {
           }
         );
       } catch (error) {
-        console.error('Failed to acquire leadership during re-election:', error);
+        logger.error('Failed to acquire leadership during re-election:', error);
       }
     }
   }, config.heartbeatInterval);
@@ -252,7 +253,7 @@ function startLivenessMonitor(): void {
  * Initialize this tab as the leader
  */
 async function startLeader(): Promise<void> {
-  console.log('👑 Starting as leader tab...');
+  logger.info('Starting as leader tab...');
   
   // Start heartbeat broadcasting
   startHeartbeat();
@@ -263,8 +264,8 @@ async function startLeader(): Promise<void> {
   // Note: Leader DuckDB initialization will be handled by DuckDBManager
   // to avoid circular dependencies. The manager will call setLeaderDatabase.
   
-  console.log('✓ Leader initialization complete');
-  console.log('✓ Multi-tab system initialized as LEADER');
+  logger.info('Leader initialization complete');
+  logger.info('Multi-tab system initialized as LEADER');
 }
 
 /**
@@ -301,7 +302,7 @@ function setupConnectionAcceptance(): void {
         handleConnectionRequest(event);
       } else if (msg.type === 'query') {
         // Handle query messages from clients
-        console.log('👑 Leader received query:', msg);
+        logger.debug('Leader received query:', msg);
         handleQueryMessage(msg.payload);
       }
     }
@@ -312,28 +313,28 @@ function setupConnectionAcceptance(): void {
  * Handle incoming client connection requests
  */
 async function handleConnectionRequest(event: MessageEvent<ControlMessage>): Promise<void> {
-  console.log('📡 Leader received connection request');
+  logger.debug('Leader received connection request');
   
   // For now, just acknowledge that we're ready to handle queries
   // Queries will be handled directly via BroadcastChannel
   channel.postMessage({ type: 'connect_ack' } as ControlMessage);
   
-  console.log('✓ Client connection acknowledged');
+  logger.info('Client connection acknowledged');
 }
 
 /**
  * Handle query messages from clients via BroadcastChannel
  */
 async function handleQueryMessage(queryData: any): Promise<void> {
-  console.log('👑 Leader handling query:', queryData);
+  logger.debug('Leader handling query:', queryData);
   // Import leader functions to handle the actual query execution
   const { handleBroadcastQuery } = await import('./leader');
   
   try {
     await handleBroadcastQuery(queryData, channel);
-    console.log('👑 Leader completed query:', queryData.id);
+    logger.debug('Leader completed query:', queryData.id);
   } catch (error) {
-    console.error('👑 Leader failed to handle query:', error);
+    logger.error('Leader failed to handle query:', error);
     // Send error response back to client
     const errorResponse: SqlResponse = {
       id: queryData.id,
@@ -352,14 +353,14 @@ async function handleQueryMessage(queryData: any): Promise<void> {
  * Initialize this tab as a client
  */
 async function startClient(): Promise<void> {
-  console.log('📡 Starting as client tab...');
+  logger.info('Starting as client tab...');
   
   // Initialize the client's connection to leader
   const { initializeClient } = await import('./client');
   await initializeClient(requestLeaderConnection);
   
-  console.log('✓ Client initialization complete');
-  console.log('✓ Multi-tab system initialized as CLIENT');
+  logger.info('Client initialization complete');
+  logger.info('Multi-tab system initialized as CLIENT');
   
   // Start liveness monitoring for clients
   startLivenessMonitor();
@@ -376,7 +377,7 @@ function requestLeaderConnection(callback: (port: MessagePort) => void): void {
   leaderPortFactory = callback;
   
   // Send connection request
-  console.log('📡 Requesting connection to leader...');
+  logger.info('Requesting connection to leader...');
   channel.postMessage({ type: 'connect' } as ControlMessage);
   
   // Wait for connect_ack, then simulate a successful connection
@@ -422,5 +423,5 @@ export function cleanup(): void {
   isLeader = false;
   leaderPortFactory = null;
   
-  console.log('✓ Multi-tab system cleaned up');
+  logger.info('Multi-tab system cleaned up');
 }

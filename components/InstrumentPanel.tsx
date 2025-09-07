@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useInstrumentPanel } from '@/hooks/useInstrumentPanel';
 import { MemoryUsageBar } from './MemoryUsageBar';
 import { Button } from './ui/Button';
+import { GitHubIcon } from './icons';
 import { Switch } from './ui/Switch';
 import { Separator } from './ui/Separator';
 
@@ -198,6 +199,20 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({
                 </span>
               </div>
             </div>
+
+            <Separator orientation="vertical" className="h-4" />
+
+            {/* GitHub link (icon-only, bordered) */}
+            <a
+              href="https://github.com/james-ralph8555/homebench"
+              target="_blank"
+              rel="noreferrer"
+              title="Open project on GitHub"
+              aria-label="Open project on GitHub"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-input text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <GitHubIcon size={14} />
+            </a>
           </div>
         </div>
       </div>

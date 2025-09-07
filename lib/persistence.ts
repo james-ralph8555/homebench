@@ -1,4 +1,5 @@
 // Session persistence using OPFS-backed DuckDB database file
+import { logger } from '@/lib/logger';
 
 // Force persistence of database changes to OPFS
 export async function saveSession(db: any): Promise<void> {
@@ -6,21 +7,21 @@ export async function saveSession(db: any): Promise<void> {
     // First, try to flush any pending writes
     if (typeof (db as any).flushFiles === 'function') {
       await (db as any).flushFiles();
-      console.log('Flushed database files to OPFS');
+      logger.info('Flushed database files to OPFS');
     }
     
     // Force a checkpoint to ensure all changes are written
     const connection = await db.connect();
     try {
       await connection.query('CHECKPOINT');
-      console.log('Performed checkpoint');
+      logger.info('Performed checkpoint');
     } catch (error) {
-      console.warn('Unable to perform checkpoint:', error);
+      logger.warn('Unable to perform checkpoint:', error);
     } finally {
       await connection.close();
     }
   } catch (error) {
-    console.warn('Error during save session:', error);
+    logger.warn('Error during save session:', error);
     throw error;
   }
 }
@@ -34,12 +35,12 @@ export async function loadSession(db: any): Promise<void> {
       await connection.query('CHECKPOINT');
     } catch (error) {
       // Checkpoint might not be available in all configurations, that's ok
-      console.warn('Unable to perform checkpoint:', error);
+      logger.warn('Unable to perform checkpoint:', error);
     } finally {
       await connection.close();
     }
   } catch (error) {
-    console.warn('Error during load session:', error);
+    logger.warn('Error during load session:', error);
   }
 }
 
@@ -64,7 +65,7 @@ export async function checkSessionExists(db?: any): Promise<boolean> {
       await connection.close();
     }
   } catch (error) {
-    console.warn('Error checking for saved session:', error);
+    logger.warn('Error checking for saved session:', error);
     return false;
   }
 }

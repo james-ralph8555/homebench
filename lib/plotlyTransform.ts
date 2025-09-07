@@ -1,5 +1,6 @@
 import { Table as ArrowTable } from 'apache-arrow';
 import { PlotData, Layout } from 'plotly.js';
+import { logger } from '@/lib/logger';
 
 export interface ChartConfig {
   type: 'scatter' | 'bar' | 'line' | 'pie' | 'histogram';
@@ -133,7 +134,7 @@ export const transformArrowToPlotly = (
     // Performance check for large datasets
     const rowCount = dataObjects.length;
     if (rowCount > 100000) {
-      console.warn(`Large dataset detected (${rowCount} rows). Consider sampling or aggregation for better performance.`);
+      logger.warn(`Large dataset detected (${rowCount} rows). Consider sampling or aggregation for better performance.`);
     }
     
     // Generate Plotly data based on chart type

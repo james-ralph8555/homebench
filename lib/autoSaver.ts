@@ -1,4 +1,5 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { logger } from '@/lib/logger';
 
 // Regex pattern to detect SQL statements that modify data
 export const MUTATING_SQL = /^(?:\s*)(BEGIN|COMMIT|CREATE|INSERT|UPDATE|DELETE|REPLACE|ALTER|DROP|COPY|ATTACH|DETACH|MERGE|TRUNCATE|VACUUM|PRAGMA\s+checkpoint|CHECKPOINT)\b/i;
@@ -67,7 +68,7 @@ export function makeRunner(
         await conn.query("CHECKPOINT");
         // 2) Persist to OPFS
         await db.flushFiles();
-        console.log('✓ Write operation persisted to OPFS');
+        logger.info('Write operation persisted to OPFS');
       }
       
       return result;
@@ -110,14 +111,14 @@ export async function batchWrite(
     await conn.query("COMMIT");
     await conn.query("CHECKPOINT");
     await db.flushFiles();
-    console.log('✓ Batch write operations persisted to OPFS');
+    logger.info('Batch write operations persisted to OPFS');
     
     return results;
   } catch (error) {
     try {
       await conn.query("ROLLBACK");
     } catch (rollbackError) {
-      console.warn('Failed to rollback transaction:', rollbackError);
+      logger.warn('Failed to rollback transaction:', rollbackError);
     }
     throw error;
   } finally {

@@ -1,4 +1,5 @@
 // Performance utilities for HomeBench
+import { logger } from '@/lib/logger';
 
 // Query optimization helpers
 export const QueryOptimizer = {
@@ -150,7 +151,7 @@ export const PerformanceMonitor = {
       const duration = performance.now() - startTime;
       const endMemory = (performance as any).memory?.usedJSHeapSize;
       
-      console.log(`Query executed in ${duration.toFixed(2)}ms:`, queryText.substring(0, 100));
+      logger.info(`Query executed in ${duration.toFixed(2)}ms:`, queryText.substring(0, 100));
       
       return {
         result,
@@ -159,19 +160,18 @@ export const PerformanceMonitor = {
       };
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error(`Query failed after ${duration.toFixed(2)}ms:`, error);
+      logger.error(`Query failed after ${duration.toFixed(2)}ms:`, error);
       throw error;
     }
   },
 
   // Log performance metrics
   logMetrics: (metrics: { queryCount: number; avgDuration: number; totalMemory: number }) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.group('📊 HomeBench Performance Metrics');
-      console.log(`Queries executed: ${metrics.queryCount}`);
-      console.log(`Average duration: ${metrics.avgDuration.toFixed(2)}ms`);
-      console.log(`Memory usage: ${MemoryManager.formatMemorySize(metrics.totalMemory)}`);
-      console.groupEnd();
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info(`HomeBench Performance Metrics`);
+      logger.info(`Queries executed: ${metrics.queryCount}`);
+      logger.info(`Average duration: ${metrics.avgDuration.toFixed(2)}ms`);
+      logger.info(`Memory usage: ${MemoryManager.formatMemorySize(metrics.totalMemory)}`);
     }
   }
 };
