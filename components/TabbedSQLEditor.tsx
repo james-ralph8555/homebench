@@ -5,6 +5,8 @@ import { SQLEditor } from './SQLEditor';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { XIcon, PlusIcon, GripVerticalIcon } from './icons';
+import { getPreference, setPreference } from '@/lib/queryStore';
+import { debounce } from '@/lib/performanceUtils';
 
 interface SQLTab {
   id: string;
@@ -25,6 +27,9 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
   className = '',
   useMobilePlaceholder
 }) => {
+  // Persisted editor state key
+  const PREF_KEY = 'editorState';
+
   const [tabs, setTabs] = useState<SQLTab[]>([
     { id: '1', label: 'Query 1', content: value }
   ]);
@@ -35,6 +40,53 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
   const resizeRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef<number>(0);
   const startHeightRef = useRef<number>(0);
+  const isHydratedRef = useRef<boolean>(false);
+  const userEditedRef = useRef<boolean>(false);
+
+  type EditorState = {
+    tabs: SQLTab[];
+    activeTabId: string;
+    nextTabId: number;
+    // height?: number; // Not required for spec, can add later
+  };
+
+  // Restore editor state from IndexedDB (Dexie preferences)
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await getPreference<EditorState | null>(PREF_KEY, null);
+        if (cancelled || !saved) {
+          isHydratedRef.current = true;
+          return;
+        }
+        setTabs(saved.tabs && saved.tabs.length > 0 ? saved.tabs : [{ id: '1', label: 'Query 1', content: value }]);
+        setActiveTab(saved.activeTabId || (saved.tabs?.[0]?.id ?? '1'));
+        setNextTabId(saved.nextTabId || 2);
+        // Sync parent with the active tab's content
+        const active = saved.tabs.find(t => t.id === (saved.activeTabId || '1')) || saved.tabs[0];
+        if (active) {
+          onChange(active.content || '');
+        }
+      } catch (e) {
+        // If anything goes wrong, proceed with defaults
+        console.warn('Failed to restore editor state:', e);
+      } finally {
+        isHydratedRef.current = true;
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced saver to limit IndexedDB writes while typing
+  const persistState = React.useMemo(() => debounce(async (state: EditorState) => {
+    try {
+      await setPreference(PREF_KEY, state);
+    } catch (e) {
+      console.warn('Failed to persist editor state:', e);
+    }
+  }, 1000), []);
 
   // Update the active tab's content when value prop changes
   React.useEffect(() => {
@@ -45,22 +97,35 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
     );
   }, [value, activeTab]);
 
+  // Note: We persist explicitly after user edits to avoid frequent status flashing.
+
   const handleTabChange = useCallback((tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
       setActiveTab(tabId);
       onChange(tab.content);
+      // Persist active tab switch (lightweight)
+      const nextState: EditorState = { tabs, activeTabId: tabId, nextTabId };
+      if (isHydratedRef.current) persistState(nextState);
     }
-  }, [tabs, onChange]);
+  }, [tabs, onChange, persistState, nextTabId]);
 
   const handleTabContentChange = useCallback((newContent: string) => {
+    userEditedRef.current = true;
     setTabs(prevTabs => 
       prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, content: newContent } : tab
       )
     );
     onChange(newContent);
-  }, [activeTab, onChange]);
+    // Persist after user edit (debounced)
+    const nextState: EditorState = {
+      tabs: tabs.map(t => t.id === activeTab ? { ...t, content: newContent } : t),
+      activeTabId: activeTab,
+      nextTabId
+    };
+    if (isHydratedRef.current) persistState(nextState);
+  }, [activeTab, onChange, persistState, tabs, nextTabId]);
 
   const addNewTab = useCallback(() => {
     const newTab: SQLTab = {
@@ -72,7 +137,10 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
     setNextTabId(prev => prev + 1);
     setActiveTab(newTab.id);
     onChange('');
-  }, [nextTabId, onChange]);
+    // Persist structural change
+    const nextState: EditorState = { tabs: [...tabs, newTab], activeTabId: newTab.id, nextTabId: nextTabId + 1 };
+    if (isHydratedRef.current) persistState(nextState);
+  }, [nextTabId, onChange, persistState, tabs]);
 
   const closeTab = useCallback((tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -89,7 +157,13 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
       setActiveTab(nextActiveTab.id);
       onChange(nextActiveTab.content);
     }
-  }, [tabs, activeTab, onChange]);
+    // Persist structural change
+    const nextActiveId = activeTab === tabId
+      ? (newTabs[Math.min(tabIndex, newTabs.length - 1)]?.id || newTabs[0]?.id || '1')
+      : activeTab;
+    const nextState: EditorState = { tabs: newTabs, activeTabId: nextActiveId, nextTabId };
+    if (isHydratedRef.current) persistState(nextState);
+  }, [tabs, activeTab, onChange, persistState, nextTabId]);
 
 
   // Resize functionality
@@ -179,7 +253,7 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
           <TabsContent key={tab.id} value={tab.id} className="mt-0">
             <div className="relative overflow-hidden rounded-none">
               <SQLEditor
-                value={currentTab?.content || ''}
+                value={tab.content}
                 onChange={handleTabContentChange}
                 style={{ height: `${height}px` }}
                 useMobilePlaceholder={useMobilePlaceholder}

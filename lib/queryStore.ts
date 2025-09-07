@@ -92,11 +92,13 @@ export async function searchQueries(searchTerm: string): Promise<SavedQuery[]> {
 // Preferences management functions
 export async function setPreference(key: string, value: any): Promise<void> {
   const now = new Date();
-  await db.preferences.put({
-    key,
-    value,
-    updatedAt: now,
-  });
+  // Upsert by unique key to avoid duplicate-key errors on subsequent writes
+  const existing = await db.preferences.where('key').equals(key).first();
+  if (existing && typeof existing.id === 'number') {
+    await db.preferences.update(existing.id, { value, updatedAt: now });
+  } else {
+    await db.preferences.add({ key, value, updatedAt: now });
+  }
 }
 
 export async function getPreference<T>(key: string, defaultValue: T): Promise<T> {
@@ -173,4 +175,3 @@ export async function importData(data: { queries?: SavedQuery[], preferences?: U
     await db.preferences.bulkAdd(data.preferences.map(p => ({ ...p, id: undefined })));
   }
 }
-
