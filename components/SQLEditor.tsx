@@ -5,6 +5,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { EditorView } from '@codemirror/view';
+import { hbPlaceholderSkin } from '@/editor/brandTheme';
 import { debounce } from '@/lib/performanceUtils';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { executeQuery } from '@/lib/multiTabQuery';
@@ -122,15 +123,11 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
         fontFamily: 'var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
         minHeight: '18em',
       },
-      '.cm-placeholder': {
-        whiteSpace: 'pre',
-        opacity: 0.35,
-        fontFamily: 'var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-        pointerEvents: 'none',
-      },
     }),
     // Performance: Disable some features for large queries
     EditorView.lineWrapping,
+    // Brand gradient placeholder + mono stack (JetBrains Mono preferred)
+    hbPlaceholderSkin,
   ], [cmSchema]);
 
   // Handle change with immediate update for UI responsiveness
@@ -163,9 +160,9 @@ Privacy-by-Design SQL Workbench.
         // Default to 12 lines worth of height; if explicit height provided, subtract container padding/borders
         height={style.height ? `${parseInt(style.height.toString()) - 44}px` : '18em'}
         minHeight={'18em'}
+        theme={oneDark}
         extensions={extensions}
         onChange={handleChange}
-        theme={oneDark}
         placeholder={HB_ASCII}
         basicSetup={{
           lineNumbers: true,
