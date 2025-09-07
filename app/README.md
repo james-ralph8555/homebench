@@ -65,7 +65,7 @@ Requires WebAssembly and modern JavaScript features. If OPFS is unavailable, the
 
 ## Entry Points
 
-- `app/layout.tsx`: Root layout, fonts, and providers. Mounts the global `Toaster` for UI notifications and adds bottom padding to accommodate the fixed Instrument Panel.
+- `app/layout.tsx`: Root layout, fonts, and providers. Adds bottom padding to accommodate the fixed Instrument Panel.
 - `app/page.tsx`: Home route hosting the workbench (`<TabbedWorkbench />`).
 - `contexts/DuckDBContext.tsx`: Integrates with `DuckDBManager`; only the leader holds a `db` instance. Clients see `db = null` and use manager/ops to query. Exposes multi‑tab status, saving state, and write access.
 
@@ -111,7 +111,7 @@ See `lib/multitab/README.md` for details.
 
 - Database file: OPFS path `opfs://homebench.db` (created by `lib/duckdbManager.initializeDatabase`).
 - Durability: Writes validate connection health, attempt automatic recovery for write‑mode corruption when detected, execute the write, and `CHECKPOINT` afterward. Retries/backoff handle transient locks; periodic flush (`flushFiles`) on interval and visibility changes.
-- UI feedback: `lib/durableOperations.registerWriteCallbacks` drives a global “saving” indicator, commit success timestamps, and recovery toasts (rendered via the layout `Toaster`).
+- UI feedback: `lib/durableOperations.registerWriteCallbacks` drives a global “saving” indicator and commit success timestamps. Recovery messages are logged to the console.
 - Recovery: On startup, `checkDatabaseRecovery()` infers restored sessions and notifies the user (e.g., “Session restored with N tables”).
 - Session utilities: `hooks/usePersistence` exposes `loadSession`, `checkSessionExists`, `deleteSession`, and size formatting.
 

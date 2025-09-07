@@ -106,13 +106,10 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
             }
           },
           onRecoveryNotification: (message: string, type: 'info' | 'warning') => {
-            // Show toast notification for recovery
-            const { toast } = require('@/hooks/use-toast');
-            toast({
-              title: type === 'info' ? 'Database restored' : 'Recovery notice',
-              description: message,
-              variant: type === 'warning' ? 'destructive' : 'default',
-            });
+            // Replaced toast notification with console message
+            const prefix = type === 'warning' ? '[Recovery warning]' : '[Recovery info]';
+            // eslint-disable-next-line no-console
+            console[type === 'warning' ? 'warn' : 'info'](`${prefix} ${message}`);
           }
         });
         

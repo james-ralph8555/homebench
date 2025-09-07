@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { DuckDBProvider } from '@/contexts/DuckDBContext'
-import { Toaster } from '@/components/ui/toaster'
 import './critical.css'
 import './globals.css'
 
@@ -44,7 +43,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans pb-10`}>
         <DuckDBProvider>
           {children}
-          <Toaster />
         </DuckDBProvider>
       </body>
     </html>
