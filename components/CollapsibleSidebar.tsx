@@ -18,15 +18,33 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   defaultExpanded = true,
   className = ''
 }) => {
-  const [open, setOpen] = React.useState(defaultExpanded);
+  const [isClient, setIsClient] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.matchMedia('(max-width: 1279px)').matches;
+      setIsMobile(mobile);
+      setIsOpen(mobile ? false : defaultExpanded);
+    };
+    
+    checkMobile();
+    setIsClient(true);
+    
+    const mediaQuery = window.matchMedia('(max-width: 1279px)');
+    mediaQuery.addEventListener('change', checkMobile);
+    
+    return () => mediaQuery.removeEventListener('change', checkMobile);
+  }, [defaultExpanded]);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className={`border rounded-lg overflow-hidden ${className}`}>
         <CollapsibleTrigger asChild>
-          <Button variant="outline" className="w-full justify-between rounded-none bg-muted/40 px-4 py-3">
+          <Button variant="outline" className="w-full justify-between rounded-none bg-muted/40 px-4 py-3 group">
             <h3 className="font-semibold">{title}</h3>
-            <TriangleIcon className={`transition-transform duration-200 ${open ? 'rotate-90' : 'rotate-0'}`} />
+            <TriangleIcon className="transition-transform duration-200 group-data-[state=open]:rotate-90 group-data-[state=closed]:rotate-0" />
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
