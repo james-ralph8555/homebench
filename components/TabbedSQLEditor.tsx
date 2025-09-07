@@ -218,25 +218,29 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="px-3 py-1.5 whitespace-nowrap"
+                    className="group relative px-3 pr-6 py-1.5 whitespace-nowrap"
                   >
                     {tab.label}
+                    {tabs.length > 1 && (
+                      <span
+                        onClick={(e: React.MouseEvent) => closeTab(tab.id, e)}
+                        onMouseDown={(e) => {
+                          // Prevent focusing/switching tabs when pressing the close icon
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        className="absolute right-1 inline-flex items-center justify-center h-4 w-4 rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-destructive/20"
+                        title={`Close ${tab.label}`}
+                        aria-label={`Close ${tab.label}`}
+                        role="button"
+                      >
+                        <XIcon size={12} />
+                      </span>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </div>
-            {tabs.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeTab(activeTab, e);
-                }}
-                className="ml-2 p-1 hover:bg-destructive/20 rounded transition-colors flex-shrink-0"
-                title="Close current tab"
-              >
-                <XIcon size={14} />
-              </button>
-            )}
           </div>
           <Button
             onClick={addNewTab}
