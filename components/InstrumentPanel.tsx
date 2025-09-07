@@ -26,6 +26,7 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({
     isCurrentTabOwner,
     lockOwner,
     isSaving,
+    isTyping,
     lastCommitTime,
     requestLock
   } = useInstrumentPanel();
@@ -130,6 +131,11 @@ export const InstrumentPanel: React.FC<InstrumentPanelProps> = ({
                 <>
                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500" />
                   <span className="text-blue-600 dark:text-blue-400 font-medium">Saving...</span>
+                </>
+              ) : isTyping ? (
+                <>
+                  <div className="animate-pulse w-3 h-3 rounded-full bg-amber-500" />
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">Saving...</span>
                 </>
               ) : (
                 <>

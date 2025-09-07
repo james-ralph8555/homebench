@@ -11,6 +11,8 @@ interface DuckDBContextType {
   error: Error | null;
   isSaving: boolean;
   setSaving: (saving: boolean) => void;
+  isTyping: boolean;
+  setTyping: (typing: boolean) => void;
   hasWriteAccess: boolean;
   initializationStage: 'not_started' | 'loading' | 'ready' | 'error';
   loadingProgress: {
@@ -46,6 +48,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false); // Changed to false for non-blocking
   const [error, setError] = useState<Error | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isTyping, setIsTyping] = useState<boolean>(false);
   const [hasWriteAccess, setHasWriteAccess] = useState<boolean>(true);
   const [initializationStage, setInitializationStage] = useState<'not_started' | 'loading' | 'ready' | 'error'>('not_started');
   const [loadingProgress, setLoadingProgress] = useState<DuckDBContextType['loadingProgress']>(null);
@@ -195,6 +198,12 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     }
   };
 
+  const setTyping = (typing: boolean) => {
+    if (isMountedRef.current) {
+      setIsTyping(typing);
+    }
+  };
+
   // Computed property to determine if the database is ready for use
   // Leader tabs have a direct DB handle (db !== null). Client tabs do not,
   // but are considered ready when connected to the leader via multi‑tab.
@@ -207,6 +216,8 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     error, 
     isSaving, 
     setSaving, 
+    isTyping,
+    setTyping,
     hasWriteAccess, 
     initializationStage,
     loadingProgress,

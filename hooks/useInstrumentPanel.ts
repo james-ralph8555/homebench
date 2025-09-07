@@ -22,6 +22,7 @@ export interface InstrumentPanelState {
   
   // Saving state
   isSaving: boolean;
+  isTyping?: boolean;
   lastCommitTime: Date | null;
   
   // Actions
@@ -34,6 +35,7 @@ export function useInstrumentPanel(): InstrumentPanelState {
     db, 
     hasWriteAccess, 
     isSaving, 
+    isTyping,
     multiTabStatus,
     isReady,
     lastCommitTime
@@ -175,6 +177,7 @@ export function useInstrumentPanel(): InstrumentPanelState {
     
     // Saving state
     isSaving: isSaving || isRequestingLock,
+    isTyping,
     lastCommitTime,
     
     // Actions

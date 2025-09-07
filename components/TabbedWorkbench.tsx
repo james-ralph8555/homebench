@@ -65,7 +65,7 @@ const Visualization = dynamic(() => import('./Visualization').then(mod => ({ def
 type TabType = 'upload' | 'query' | 'visualization';
 
 export const TabbedWorkbench: React.FC = () => {
-  const { db, isLoading, error: dbError, isSaving, hasWriteAccess, initializationStage, loadingProgress, isReady, multiTabStatus } = useDuckDB();
+  const { db, isLoading, error: dbError, isSaving, isTyping, setTyping, hasWriteAccess, initializationStage, loadingProgress, isReady, multiTabStatus } = useDuckDB();
   const { loadSession, checkSessionExists, isSupported } = usePersistence();
   const [activeTab, setActiveTab] = useState<TabType>('query');
   const [sql, setSql] = useState<string>('');
@@ -94,6 +94,7 @@ export const TabbedWorkbench: React.FC = () => {
     chartConfig?: any;
     chartType?: string;
   }>({});
+  const typingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Explain state
   const [showExplain, setShowExplain] = useState(false);
@@ -482,6 +483,11 @@ export const TabbedWorkbench: React.FC = () => {
                             <div className="animate-pulse w-2 h-2 bg-current rounded-full mr-2"></div>
                             Database active - {multiTabStatus.activeConnections} tab{multiTabStatus.activeConnections !== 1 ? 's' : ''} connected
                           </span>
+                        ) : isTyping ? (
+                          <span className="flex items-center text-amber-600 dark:text-amber-400">
+                            <div className="animate-pulse w-2 h-2 bg-current rounded-full mr-2"></div>
+                            Saving…
+                          </span>
                         ) : (
                           <span className="text-green-600 dark:text-green-400">All changes saved</span>
                         )}
@@ -547,7 +553,18 @@ export const TabbedWorkbench: React.FC = () => {
                     </div>
                   </div>
                   <Suspense fallback={<div className="animate-pulse stable-skeleton-editor" />}>
-                    <TabbedSQLEditor value={sql} onChange={setSql} useMobilePlaceholder={isToolbarOverflowing} />
+                    <TabbedSQLEditor 
+                      value={sql} 
+                      onChange={(val) => {
+                        setSql(val);
+                        if (typingTimerRef.current) {
+                          clearTimeout(typingTimerRef.current);
+                        }
+                        setTyping(true);
+                        typingTimerRef.current = setTimeout(() => setTyping(false), 1000);
+                      }} 
+                      useMobilePlaceholder={isToolbarOverflowing} 
+                    />
                   </Suspense>
                 </div>
 
