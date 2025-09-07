@@ -218,7 +218,8 @@ export const TabbedWorkbench: React.FC = () => {
         
         // Check if the write operation failed and throw the error to display it in UI
         if (!result.success && result.error) {
-          throw new Error(result.error);
+          const message = typeof result.error === 'string' ? result.error : result.error?.message;
+          throw new Error(message);
         }
         
         // Trigger schema refresh for DDL operations

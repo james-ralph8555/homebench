@@ -42,6 +42,19 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
   const startHeightRef = useRef<number>(0);
   const isHydratedRef = useRef<boolean>(false);
   const userEditedRef = useRef<boolean>(false);
+  const activeTabRef = useRef<string>('1');
+  const lastUserEditRef = useRef<string | null>(null);
+  // Track initial and latest parent-provided value to prevent overwriting active typing on restore
+  const initialValueRef = useRef<string>(value);
+  const latestValueRef = useRef<string>(value);
+  React.useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  // Keep a ref to current active tab for effects that must not depend on it
+  React.useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   type EditorState = {
     tabs: SQLTab[];
@@ -60,13 +73,26 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
           isHydratedRef.current = true;
           return;
         }
-        setTabs(saved.tabs && saved.tabs.length > 0 ? saved.tabs : [{ id: '1', label: 'Query 1', content: value }]);
-        setActiveTab(saved.activeTabId || (saved.tabs?.[0]?.id ?? '1'));
+        const savedTabs = saved.tabs && saved.tabs.length > 0 ? saved.tabs : [{ id: '1', label: 'Query 1', content: value }];
+        const nextActiveId = saved.activeTabId || (savedTabs[0]?.id ?? '1');
+
+        // If the user has started typing already (before hydration completes),
+        // do NOT overwrite their current content. Merge saved structure but keep current value.
+        let nextTabs = savedTabs;
+        if (userEditedRef.current || latestValueRef.current !== initialValueRef.current) {
+          nextTabs = savedTabs.map(t => t.id === nextActiveId ? { ...t, content: latestValueRef.current } : t);
+        }
+
+        setTabs(nextTabs);
+        setActiveTab(nextActiveId);
         setNextTabId(saved.nextTabId || 2);
-        // Sync parent with the active tab's content
-        const active = saved.tabs.find(t => t.id === (saved.activeTabId || '1')) || saved.tabs[0];
-        if (active) {
-          onChange(active.content || '');
+
+        // Only push saved content into parent if the user hasn't edited since mount
+        if (!userEditedRef.current && latestValueRef.current === initialValueRef.current) {
+          const active = nextTabs.find(t => t.id === nextActiveId) || nextTabs[0];
+          if (active) {
+            onChange(active.content || '');
+          }
         }
       } catch (e) {
         // If anything goes wrong, proceed with defaults
@@ -88,14 +114,19 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
     }
   }, 1000), []);
 
-  // Update the active tab's content when value prop changes
+  // Update the active tab's content when value prop changes from parent (not from our own edit)
   React.useEffect(() => {
-    setTabs(prevTabs => 
-      prevTabs.map(tab => 
-        tab.id === activeTab ? { ...tab, content: value } : tab
+    // If the latest value equals what we just edited locally, skip echo update
+    if (lastUserEditRef.current === value) {
+      lastUserEditRef.current = null;
+      return;
+    }
+    setTabs(prevTabs =>
+      prevTabs.map(tab =>
+        tab.id === activeTabRef.current ? { ...tab, content: value } : tab
       )
     );
-  }, [value, activeTab]);
+  }, [value]);
 
   // Note: We persist explicitly after user edits to avoid frequent status flashing.
 
@@ -112,6 +143,7 @@ export const TabbedSQLEditor: React.FC<TabbedSQLEditorProps> = ({
 
   const handleTabContentChange = useCallback((newContent: string) => {
     userEditedRef.current = true;
+    lastUserEditRef.current = newContent;
     setTabs(prevTabs => 
       prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, content: newContent } : tab
