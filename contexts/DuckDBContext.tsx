@@ -10,6 +10,7 @@ import type {
   ProgressCallback
 } from '@/lib/types';
 import { toErrorMessage } from '@/lib/utils';
+import { getCapabilityReport, type CapabilityMode, type CapabilityReport } from '@/lib/capabilities';
 
 // Define the shape of the context state
 interface DuckDBContextType {
@@ -26,6 +27,8 @@ interface DuckDBContextType {
   isReady: boolean;
   lastCommitTime: Date | null;
   multiTabStatus?: MultiTabStatus;
+  capabilityMode: CapabilityMode;
+  capabilityReport: CapabilityReport;
 }
 
 // Create the context with a default undefined value
@@ -48,6 +51,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
   const [multiTabStatus, setMultiTabStatus] = useState<MultiTabStatus>({ initialized: false });
   const [lastCommitTime, setLastCommitTime] = useState<Date | null>(null);
+  const [capabilityReport, setCapabilityReport] = useState<CapabilityReport>(() => getCapabilityReport());
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -207,7 +211,9 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     loadingProgress,
     isReady,
     lastCommitTime,
-    multiTabStatus 
+    multiTabStatus,
+    capabilityMode: capabilityReport.mode,
+    capabilityReport,
   };
 
   return (
