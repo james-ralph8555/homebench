@@ -7,7 +7,7 @@
 | Program | HomeBench modernization |
 | Mode | Chromium-first, client-only, multi-tab retained |
 | Status | Active |
-| Last Updated | 2026-02-16 (H00 critical bug added) |
+| Last Updated | 2026-02-16 (H14 editor tab bug added) |
 | Owner | Implementation agent |
 | Canonical Tracking | This file is the source of truth for rollout status and commit mapping |
 
@@ -60,6 +60,7 @@ Do not skip this gate for implementation features. Existing rows marked `merged`
 | H11 | CI pipeline enforcement for `typecheck`, `lint`, `test`, and `build` | High | planned | `ci(H11): add ci workflow for typecheck lint test and build gates` | pending | H10 | CI run green on PR | Include failure visibility and artifact retention as needed. |
 | H12 | Build reproducibility in restricted networks (font strategy and deterministic build behavior) | High | planned | `build(H12): make production builds deterministic without external font fetch dependency` | pending | H02 | `npm run build` in restricted network + normal network | Current build can fail when `fonts.googleapis.com` is unreachable. |
 | H13 | Agent testing dataset and query samples for automated browser verification via MCP | High | merged | `feat(H13): add sample datasets and queries for agent-driven browser testing` | ed11415 | None | `npm run typecheck && npm run lint` | Sample CSV/JSON files + reference queries for coding agent to load and verify via Chrome DevTools MCP. Write-mode bug in import path (H04) blocks full import verification. |
+| H14 | **BUG**: SQL editor Tab key inserts tab at line start instead of at cursor position or triggering autocomplete | High | planned | `fix(H14): correct tab key behavior in SQL editor to insert at cursor or trigger autocomplete` | pending | None | `npm run typecheck && npm run lint` | Tab should insert indent at cursor or trigger autocomplete, not prepend to line start. |
 
 ## Lower-Priority Improvement Tracker
 
@@ -95,6 +96,7 @@ Each row below is the minimum browser verification script to provide to the user
 | H11 | Route: GitHub/CI UI for target PR. Actions: verify required checks (`typecheck`, `lint`, `test`, `build`) execute and gate merge. Expected: failing checks block merge, successful checks allow merge. |
 | H12 | Route: `/` production build output in normal and restricted-network scenarios. Actions: load app with network restrictions impacting external font hosts. Expected: build and runtime remain deterministic without external font fetch dependency. |
 | H13 | Route: `/` -> Upload sample file from `test/samples/`. Actions: agent loads sample CSV/JSON via file upload, runs reference query, verifies results. Expected: sample data loads correctly, query returns expected rows, results display in grid. |
+| H14 | Route: `/` -> Query Editor. Actions: (1) Type `SEL` then press Tab (expect autocomplete), (2) Position cursor mid-line and press Tab (expect indent at cursor), (3) Press Tab on empty line (expect indent). Expected: Tab inserts indent at cursor position or triggers autocomplete, NOT at line start. |
 
 ### Lower Priority
 

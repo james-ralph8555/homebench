@@ -4,11 +4,29 @@ import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
+import { Prec } from '@codemirror/state';
+import { acceptCompletion } from '@codemirror/autocomplete';
 import { hbPlaceholderSkin } from '@/editor/brandTheme';
 import { debounce } from '@/lib/performanceUtils';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { executeQuery } from '@/lib/multiTabQuery';
+
+// Insert a tab character at cursor position (not at line start)
+const insertTabAtCursor = (view: EditorView): boolean => {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const tabChar = '\t';
+  
+  view.dispatch(
+    state.update({
+      changes: { from, to, insert: tabChar },
+      selection: { anchor: from + tabChar.length },
+      userEvent: 'input.type'
+    })
+  );
+  return true;
+};
 
 interface SQLEditorProps {
   value: string;
@@ -102,6 +120,16 @@ export const SQLEditor: React.FC<SQLEditorProps> = ({
 
   // Memoize extensions to prevent recreation on every render
   const extensions = useMemo(() => [
+    // Custom Tab key handling with highest priority: accept completion if open, otherwise insert tab at cursor
+    Prec.high(keymap.of([{
+      key: 'Tab',
+      run: (view: EditorView) => {
+        // First try to accept autocomplete if open
+        if (acceptCompletion(view)) return true;
+        // Otherwise insert tab at cursor position
+        return insertTabAtCursor(view);
+      },
+    }])),
     sql({
       schema: cmSchema,
       upperCaseKeywords: true,
