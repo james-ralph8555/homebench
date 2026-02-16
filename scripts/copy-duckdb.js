@@ -52,14 +52,19 @@ async function copyFileWithCompression(filename) {
 
 async function main() {
   console.log(`Copying DuckDB assets to ${dst} (public dir)`);
-  
-  // Copy both EH (enhanced) and MVP (minimum) bundles
-  // EH is preferred for performance, MVP is a fallback for compatibility
+
+  // Copy all bundles: MVP (compatibility), EH (SIMD), COI (threading)
   const files = [
-    'duckdb-browser-eh.worker.js',
-    'duckdb-eh.wasm',
+    // MVP - basic compatibility
     'duckdb-browser-mvp.worker.js',
     'duckdb-mvp.wasm',
+    // EH - SIMD enhanced (preferred for most cases)
+    'duckdb-browser-eh.worker.js',
+    'duckdb-eh.wasm',
+    // COI - threading support (requires COOP/COEP headers)
+    'duckdb-browser-coi.worker.js',
+    'duckdb-browser-coi.pthread.worker.js',
+    'duckdb-coi.wasm',
   ];
   
   for (const filename of files) {
