@@ -118,13 +118,10 @@ describe('performanceUtils: PerformanceMonitor', () => {
   it('logs metrics in development', () => {
     const orig = process.env.NODE_ENV;
     vi.stubEnv('NODE_ENV', 'development');
-    const g = vi.spyOn(console, 'group').mockImplementation(() => {});
-    const ge = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
     PerformanceMonitor.logMetrics({ queryCount: 2, avgDuration: 10, totalMemory: 1024 });
-    expect(g).toHaveBeenCalled();
-    expect(ge).toHaveBeenCalled();
-    g.mockRestore();
-    ge.mockRestore();
+    expect(info).toHaveBeenCalled();
+    info.mockRestore();
     vi.unstubAllEnvs();
   });
 });

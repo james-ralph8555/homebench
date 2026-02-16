@@ -33,7 +33,9 @@ vi.mock('../duckdbManager', () => {
       const conn = db._conn;
       return conn.query(sql);
     }),
-    getDatabaseState: vi.fn(async () => ({ db, isOpfsSupported: true }))
+    getDatabaseState: vi.fn(async () => ({ db, isOpfsSupported: true })),
+    getDatabase: vi.fn(async () => db),
+    getMultiTabStatus: vi.fn(async () => ({ isLeader: true, role: 'leader' as const }))
   };
 
   return {
@@ -63,19 +65,11 @@ describe('durableOperations', () => {
   it('executes durable write with checkpoint and flush', async () => {
     const res = await executeDurableWrite('INSERT INTO t VALUES (1)');
     expect(res.success).toBe(true);
-    expect(res.rowsAffected).toBe(3);
-    // Check that the manager was called with the transactional query
-    const manager = (duckdbModule as any).__manager;
-    expect(manager.executeQuery).toHaveBeenCalledWith(
-      expect.stringContaining('BEGIN TRANSACTION'),
-      [],
-      'rw'
-    );
-    expect(manager.executeQuery).toHaveBeenCalledWith(
-      expect.stringContaining('CHECKPOINT'),
-      [],
-      'rw'
-    );
+    expect(typeof res.duration).toBe('number');
+    // Check that the connection was used for the query
+    const db = (duckdbModule as any).__db;
+    expect(db._conn.queries).toContain('INSERT INTO t VALUES (1)');
+    expect(db._conn.queries).toContain('CHECKPOINT');
   });
 
   it('rolls back and returns error on failure', async () => {
