@@ -66,6 +66,55 @@ All tools are prefixed with `mcp_chrome-devtools_`:
 - **Performance**: `performance_start_trace`, `performance_stop_trace`, `performance_analyze_insight`
 - **Network**: `list_network_requests`, `get_network_request`
 
+### Uploading Files via MCP
+
+The file uploader uses a hidden `<input type="file">` that isn't accessible in the accessibility tree. To upload files via MCP:
+
+1. Make the input visible using `evaluate_script`:
+```javascript
+() => {
+  const input = document.querySelector('input[type="file"]');
+  if (input) {
+    input.style.display = 'block';
+    input.style.position = 'fixed';
+    input.style.top = '10px';
+    input.style.left = '10px';
+    input.style.zIndex = '99999';
+    input.classList.remove('hidden');
+    return { success: true };
+  }
+  return { success: false };
+}
+```
+
+2. Take a snapshot to get the input's uid, then use `upload_file`:
+```
+mcp_chrome-devtools_upload_file with uid=<input_uid> filePath=/path/to/file.csv
+```
+
+3. Sample files for testing are available in `test/samples/`:
+   - `employees.csv` - 10-row employee dataset
+   - `products.json` - 10-row product catalog
+
+### Running Queries via MCP
+
+After uploading data:
+
+1. Click the "Query Editor" tab
+2. The query editor auto-populates with `SELECT * FROM "<table>" LIMIT 10;`
+3. Click "Run Query" button
+4. Verify results appear in the data grid
+
+### Handling Dialogs
+
+If a browser dialog (alert, confirm, prompt) is open, most MCP commands will fail. Use `handle_dialog` to dismiss or accept:
+
+```
+mcp_chrome-devtools_handle_dialog action="dismiss"  # or action="accept"
+```
+
+Check `list_pages` output - it will show if a dialog is open and needs handling before continuing.
+
 ## Build, Test, and Dev Commands
 
 - `npm run dev`: start local development server.
