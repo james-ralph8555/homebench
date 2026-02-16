@@ -6,7 +6,24 @@
  * browser tabs in HomeBench.
  */
 
-import { ControlMessage, DEFAULT_MULTITAB_CONFIG, MultiTabConfig, LeaderConnectionError, SqlRequest, SqlResponse } from './types';
+import { 
+  ProtocolMessage,
+  createHeartbeat,
+  createConnect,
+  createConnectAck,
+  isHeartbeat,
+  isConnect,
+  isConnectAck,
+  generateSenderId,
+  PROTOCOL_VERSION
+} from './protocol';
+import { 
+  DEFAULT_MULTITAB_CONFIG, 
+  MultiTabConfig, 
+  LeaderConnectionError, 
+  SqlRequest,
+  SqlResponse
+} from './types';
 import { logger } from '@/lib/logger';
 
 // =============================================================================
@@ -14,6 +31,7 @@ import { logger } from '@/lib/logger';
 // =============================================================================
 
 let config = DEFAULT_MULTITAB_CONFIG;
+let senderId = '';
 let isInitialized = false;
 let isLeader = false;
 let lastHeartbeat = Date.now();
@@ -42,6 +60,9 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
   // Merge configuration
   config = { ...DEFAULT_MULTITAB_CONFIG, ...customConfig };
   
+  // Generate unique sender ID for this tab
+  senderId = generateSenderId();
+  
   // Initialize broadcast channel for control messages
   channel = new BroadcastChannel(config.channelName);
   
@@ -60,9 +81,9 @@ export async function boot(customConfig?: Partial<MultiTabConfig>): Promise<void
     
     // Set up temporary heartbeat listener
     const originalHandler = channel.onmessage;
-    channel.onmessage = (event: MessageEvent<ControlMessage>) => {
+    channel.onmessage = (event: MessageEvent<ProtocolMessage>) => {
       const msg = event.data;
-      if (msg?.type === 'hb' && !roleDecided) {
+      if (isHeartbeat(msg) && !roleDecided) {
         logger.info('Detected existing leader via heartbeat - becoming client');
         roleDecided = true;
         isLeader = false;
@@ -156,52 +177,47 @@ async function attemptLeadership(): Promise<void> {
  * Set up heartbeat message listener
  */
 function setupHeartbeatListener(): void {
-  channel.onmessage = (event: MessageEvent<ControlMessage>) => {
+  channel.onmessage = (event: MessageEvent<ProtocolMessage>) => {
     const msg = event.data;
     
-    switch (msg.type) {
-      case 'hb':
-        // Update last heartbeat timestamp from leader
-        lastHeartbeat = Date.now();
-        break;
+    if (isHeartbeat(msg)) {
+      // Update last heartbeat timestamp from leader
+      lastHeartbeat = Date.now();
+    } else if (isConnectAck(msg)) {
+      // Leader acknowledged our connection request
+      if (leaderPortFactory) {
+        logger.info('Received connection acknowledgment from leader');
+        // Create a mock MessagePort since we're using BroadcastChannel directly
+        const mockPort = {
+          postMessage: (data: any) => {
+            logger.debug('Client sending query:', data);
+            channel.postMessage({ type: 'query', payload: data });
+          },
+          onmessage: null,
+          onmessageerror: null,
+          start: () => {},
+          close: () => {}
+        } as any;
         
-      case 'connect_ack':
-        // Leader acknowledged our connection request
-        if (leaderPortFactory) {
-          logger.info('Received connection acknowledgment from leader');
-          // Create a mock MessagePort since we're using BroadcastChannel directly
-          const mockPort = {
-            postMessage: (data: any) => {
-              logger.debug('Client sending query:', data);
-              channel.postMessage({ type: 'query', payload: data });
-            },
-            onmessage: null,
-            onmessageerror: null,
-            start: () => {},
-            close: () => {}
-          } as any;
-          
-          // Set up the handler for this mock port so responses get forwarded to it
-          mockPortHandler = (event: any) => {
-            if (mockPort.onmessage) {
-              mockPort.onmessage(event);
-            }
-          };
-          
-          leaderPortFactory(mockPort);
-          leaderPortFactory = null;
-        }
-        break;
+        // Set up the handler for this mock port so responses get forwarded to it
+        mockPortHandler = (event: any) => {
+          if (mockPort.onmessage) {
+            mockPort.onmessage(event);
+          }
+        };
         
-      case 'query_response':
-        // Forward query responses to the client's mock port handler
-        if (!isLeader && mockPortHandler) {
-          // Extract the response data from the broadcast message
-          const { type, ...responseData } = msg;
-          logger.debug('Client received query response:', responseData);
-          mockPortHandler({ data: responseData });
-        }
-        break;
+        leaderPortFactory(mockPort);
+        leaderPortFactory = null;
+      }
+    } else if ((msg as any).type === 'query_response') {
+      // Forward query responses to the client's mock port handler
+      // Note: query_response is a legacy message type not in the typed protocol
+      if (!isLeader && mockPortHandler) {
+        // Extract the response data from the broadcast message
+        const { type, ...responseData } = msg as any;
+        logger.debug('Client received query response:', responseData);
+        mockPortHandler({ data: responseData });
+      }
     }
   };
 }
@@ -278,7 +294,8 @@ function startHeartbeat(): void {
   
   heartbeatTimer = window.setInterval(() => {
     if (isLeader) {
-      channel.postMessage({ type: 'hb' } as ControlMessage);
+      const heartbeat = createHeartbeat(senderId, true, 0);
+      channel.postMessage(heartbeat);
     }
   }, config.heartbeatInterval);
 }
@@ -289,7 +306,7 @@ function startHeartbeat(): void {
 function setupConnectionAcceptance(): void {
   const originalListener = channel.onmessage;
   
-  channel.onmessage = (event: MessageEvent<ControlMessage | any>) => {
+  channel.onmessage = (event: MessageEvent<ProtocolMessage | any>) => {
     // Call original listener first (for heartbeat handling)
     if (originalListener) {
       originalListener.call(channel, event);
@@ -298,7 +315,7 @@ function setupConnectionAcceptance(): void {
     const msg = event.data;
     
     if (isLeader) {
-      if (msg.type === 'connect') {
+      if (isConnect(msg)) {
         handleConnectionRequest(event);
       } else if (msg.type === 'query') {
         // Handle query messages from clients
@@ -312,12 +329,16 @@ function setupConnectionAcceptance(): void {
 /**
  * Handle incoming client connection requests
  */
-async function handleConnectionRequest(event: MessageEvent<ControlMessage>): Promise<void> {
+async function handleConnectionRequest(event: MessageEvent<ProtocolMessage>): Promise<void> {
   logger.debug('Leader received connection request');
+  
+  const msg = event.data;
+  if (!isConnect(msg)) return;
   
   // For now, just acknowledge that we're ready to handle queries
   // Queries will be handled directly via BroadcastChannel
-  channel.postMessage({ type: 'connect_ack' } as ControlMessage);
+  const ack = createConnectAck(senderId, msg.clientId, true);
+  channel.postMessage(ack);
   
   logger.info('Client connection acknowledged');
 }
@@ -378,7 +399,8 @@ function requestLeaderConnection(callback: (port: MessagePort) => void): void {
   
   // Send connection request
   logger.info('Requesting connection to leader...');
-  channel.postMessage({ type: 'connect' } as ControlMessage);
+  const connect = createConnect(senderId, PROTOCOL_VERSION);
+  channel.postMessage(connect);
   
   // Wait for connect_ack, then simulate a successful connection
   // For now, we'll use the BroadcastChannel directly instead of MessagePorts

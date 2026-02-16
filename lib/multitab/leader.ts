@@ -11,7 +11,23 @@
 
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { logger } from '@/lib/logger';
-import { SqlRequest, SqlResponse, DEFAULT_MULTITAB_CONFIG, PendingQuery, QueryCancelledError } from './types';
+import { 
+  SqlRequest, 
+  SqlResponse, 
+  SqlRequestMessage,
+  createSqlAck,
+  createArrowChunk,
+  createJsonChunk,
+  createComplete,
+  createError,
+  createCancel,
+  isSqlRequest,
+  generateSenderId
+} from './protocol';
+import {
+  DEFAULT_MULTITAB_CONFIG,
+  QueryCancelledError
+} from './types';
 import type { DuckDatabase, DuckConnection } from '@/lib/types';
 import { toErrorMessage } from '@/lib/utils';
 
@@ -21,6 +37,7 @@ import { toErrorMessage } from '@/lib/utils';
 
 let db: DuckDatabase | null = null;
 let isOpfsSupported = false;
+let leaderId = '';
 const connectionPool = new Map<MessagePort, DuckConnection>();
 let writeQueue = Promise.resolve();
 
@@ -35,6 +52,7 @@ let writeQueue = Promise.resolve();
 export function setLeaderDatabase(dbInstance: DuckDatabase, opfsSupported: boolean): void {
   db = dbInstance;
   isOpfsSupported = opfsSupported;
+  leaderId = generateSenderId();
   logger.info(`Leader DuckDB set (OPFS: ${isOpfsSupported ? 'enabled' : 'disabled'})`);
 }
 
@@ -346,13 +364,14 @@ function cleanupClientConnection(port: MessagePort): void {
 /**
  * Handle query messages coming via BroadcastChannel (instead of MessagePort)
  */
-export async function handleBroadcastQuery(queryData: any, channel: BroadcastChannel): Promise<void> {
+export async function handleBroadcastQuery(queryData: unknown, channel: BroadcastChannel): Promise<void> {
   logger.debug('Leader processing broadcast query:', queryData);
   
   if (!db) {
     throw new Error('Leader DuckDB not initialized');
   }
 
+  // Cast to legacy SqlRequest format for compatibility
   const request = queryData as SqlRequest;
   
   try {
@@ -387,7 +406,7 @@ export async function handleBroadcastQuery(queryData: any, channel: BroadcastCha
       id: request.id,
       ok: false,
       error: toErrorMessage(error)
-    };
+    } as const;
     channel.postMessage(errorResponse);
   }
 }

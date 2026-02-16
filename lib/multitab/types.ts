@@ -1,39 +1,82 @@
 /**
  * @fileoverview Type definitions for multi-tab DuckDB coordination
- * 
- * Defines the message types and interfaces for leader-client communication,
- * streaming query execution, and crash recovery in HomeBench.
+ *
+ * Re-exports protocol types and provides additional non-protocol types
+ * for configuration, state management, and error handling.
  */
 
-// =============================================================================
-// MESSAGE PROTOCOL TYPES
-// =============================================================================
+// Re-export protocol types
+export type {
+  // Message types
+  ProtocolMessage,
+  ControlMessage,
+  QueryMessage,
+  ControlMessageType,
+  QueryMessageType,
+  MessageType,
+  // Control plane
+  HeartbeatMessage,
+  ConnectMessage,
+  ConnectAckMessage,
+  DisconnectMessage,
+  // Query protocol
+  SqlRequestMessage,
+  SqlResponseMessage,
+  SqlAckMessage,
+  SqlArrowChunkMessage,
+  SqlJsonChunkMessage,
+  SqlCompleteMessage,
+  SqlErrorMessage,
+  SqlCancelMessage,
+  QueryFormat,
+  QueryMode,
+  // Legacy compatibility
+  SqlRequest,
+  SqlResponse,
+} from './protocol';
 
-/**
- * SQL query request from client to leader
- */
-export type SqlRequest =
-  | { id: string; type: 'sql'; sql: string; args?: any[]; mode: 'ro'|'rw'; fmt?: 'arrow'|'json'; chunkRows?: number }
-  | { id: string; type: 'cancel' };
+export {
+  // Type guards
+  isControlMessage,
+  isQueryMessage,
+  isHeartbeat,
+  isConnect,
+  isConnectAck,
+  isSqlRequest,
+  isSqlResponse,
+  isSqlCancel,
+  isArrowChunk,
+  isJsonChunk,
+  isComplete,
+  isError,
+  // Factories
+  generateMessageId,
+  generateSenderId,
+  createHeartbeat,
+  createConnect,
+  createConnectAck,
+  createDisconnect,
+  createSqlRequest,
+  createSqlAck,
+  createArrowChunk,
+  createJsonChunk,
+  createComplete,
+  createError,
+  createCancel,
+  // Adapters
+  adaptLegacyRequest,
+  toLegacyResponse,
+  // Constants
+  PROTOCOL_VERSION,
+  DEFAULT_CHANNEL_NAME,
+  DEFAULT_LOCK_NAME,
+  HEARTBEAT_INTERVAL_MS,
+  HEARTBEAT_GRACE_PERIODS,
+  MAX_CHUNK_SIZE_BYTES,
+  DEFAULT_CHUNK_ROWS,
+} from './protocol';
 
-/**
- * SQL query response from leader to client
- */
-export type SqlResponse =
-  | { id: string; ok: true; meta?: any }
-  | { id: string; ok: true; chunk?: ArrayBuffer }       // Arrow chunk
-  | { id: string; ok: true; rows?: any[]; done?: true } // JSON chunk or done
-  | { id: string; ok: false; error: string };
-
-/**
- * Control plane messages over BroadcastChannel
- */
-export type ControlMessage =
-  | { type: 'hb' } // heartbeat from leader
-  | { type: 'connect' } // client requesting connection
-  | { type: 'connect_ack' } // leader acknowledging connection
-  | { type: 'query'; payload: SqlRequest } // query from client to leader  
-  | { type: 'query_response'; [key: string]: any }; // query responses from leader
+import type { SqlRequest, SqlResponse } from './protocol';
 
 // =============================================================================
 // STREAMING INTERFACES

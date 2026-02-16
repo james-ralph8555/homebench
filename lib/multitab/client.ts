@@ -9,6 +9,11 @@
 import { 
   SqlRequest, 
   SqlResponse, 
+  SqlResponseMessage,
+  isError,
+  generateSenderId
+} from './protocol';
+import {
   StreamQueryOptions, 
   PendingQuery, 
   LeaderConnectionError,
@@ -30,6 +35,7 @@ let inflightQueries = new Map<string, PendingQuery>();
 let isReconnecting = false;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
+let clientId = '';
 
 // =============================================================================
 // CLIENT INITIALIZATION
@@ -43,6 +49,7 @@ export async function initializeClient(
 ): Promise<void> {
   logger.debug('Initializing client connection...');
   
+  clientId = generateSenderId();
   connectionRequestor = requestConnection;
   
   try {
@@ -98,7 +105,7 @@ function setupPortHandling(): void {
     
     try {
       if (response.ok) {
-        // Handle different response types
+        // Handle different response types from legacy format
         if ('chunk' in response && response.chunk) {
           // Arrow chunk
           pendingQuery.onChunk?.(response.chunk);
@@ -109,11 +116,13 @@ function setupPortHandling(): void {
           // Query completion
           pendingQuery.resolve(null);
           inflightQueries.delete(response.id);
+        } else if ('meta' in response) {
+          // Initial acknowledgment - ignore, wait for actual data
         }
-        // Initial acknowledgment is ignored
       } else {
         // Query error
-        const error = new Error(response.error || 'Query failed');
+        const errorMsg = 'error' in response ? response.error : 'Query failed';
+        const error = new Error(errorMsg);
         pendingQuery.reject(error);
         inflightQueries.delete(response.id);
       }
@@ -214,12 +223,12 @@ export function queryStream(options: StreamQueryOptions): Promise<void> {
     
     inflightQueries.set(queryId, pendingQuery);
     
-    // Send query request
+    // Send query request using legacy format (maintains compatibility with leader.ts)
     const request: SqlRequest = {
       id: queryId,
       type: 'sql',
       sql: options.sql,
-      args: options.args,
+      args: options.args as unknown[] | undefined,
       mode: options.mode ?? 'ro',
       fmt: options.fmt ?? 'arrow',
       chunkRows: options.chunkRows
