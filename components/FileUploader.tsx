@@ -9,6 +9,7 @@ import { SchemaPreviewInline } from './SchemaPreviewInline';
 import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
 import { logger } from '@/lib/logger';
 import { toErrorMessage } from '@/lib/utils';
+import { checkFileUpload } from '@/lib/memoryBudgetManager';
 
 interface FileUploaderProps {
   onFileUploaded?: (fileName: string) => void;
@@ -17,7 +18,7 @@ interface FileUploaderProps {
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSchemaPreviewShow, onSchemaPreviewHide }) => {
-  const { db, isReady, initializationStage, multiTabStatus } = useDuckDB();
+  const { db, isReady, initializationStage, multiTabStatus, memoryStatus } = useDuckDB();
   const [message, setMessage] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
@@ -42,6 +43,17 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
       return;
     }
 
+    // Preflight check: verify memory budget before upload
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const memoryCheck = checkFileUpload(file.size, fileExt);
+    if (!memoryCheck.allowed) {
+      setMessage(memoryCheck.message);
+      return;
+    }
+    if (memoryCheck.level === 'warning' || memoryCheck.level === 'info') {
+      logger.warn(memoryCheck.message);
+    }
+
     // Validate file size (4GB limit for WebAssembly)
     if (file.size > 4 * 1024 * 1024 * 1024) {
       setMessage('File too large. Maximum file size is 4GB due to WebAssembly limitations.');
@@ -49,7 +61,6 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
     }
     
     // Validate file type
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
     if (!['csv', 'parquet', 'json', 'jsonl', 'ndjson', 'xlsx'].includes(fileExt)) {
       setMessage(`Unsupported file type: ${fileExt}. Supported types: CSV, Parquet, JSON, Excel (.xlsx)`);
       return;

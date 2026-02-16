@@ -15,6 +15,10 @@ import {
   getRecoveryMachine, 
   type RecoveryStateInfo 
 } from '@/lib/recoveryStateMachine';
+import { 
+  getMemoryStatus, 
+  type MemoryStatus 
+} from '@/lib/memoryBudgetManager';
 
 // Define the shape of the context state
 interface DuckDBContextType {
@@ -34,6 +38,7 @@ interface DuckDBContextType {
   capabilityMode: CapabilityMode;
   capabilityReport: CapabilityReport;
   recoveryState: RecoveryStateInfo;
+  memoryStatus: MemoryStatus;
 }
 
 // Create the context with a default undefined value
@@ -58,8 +63,10 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [lastCommitTime, setLastCommitTime] = useState<Date | null>(null);
   const [capabilityReport, setCapabilityReport] = useState<CapabilityReport>(() => getCapabilityReport());
   const [recoveryState, setRecoveryState] = useState<RecoveryStateInfo>(() => getRecoveryMachine().getState());
+  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus>(() => getMemoryStatus());
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const memoryUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Subscribe to recovery state changes
   useEffect(() => {
@@ -70,6 +77,22 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
       }
     });
     return unsubscribe;
+  }, []);
+
+  // Poll memory status every 2 seconds
+  useEffect(() => {
+    const updateMemory = () => {
+      if (isMountedRef.current) {
+        setMemoryStatus(getMemoryStatus());
+      }
+    };
+    updateMemory();
+    memoryUpdateTimerRef.current = setInterval(updateMemory, 2000);
+    return () => {
+      if (memoryUpdateTimerRef.current) {
+        clearInterval(memoryUpdateTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -161,6 +184,10 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
         clearInterval(statusUpdateTimerRef.current);
         statusUpdateTimerRef.current = null;
       }
+      if (memoryUpdateTimerRef.current) {
+        clearInterval(memoryUpdateTimerRef.current);
+        memoryUpdateTimerRef.current = null;
+      }
     };
   }, []); // Empty dependency array to run only once
 
@@ -232,6 +259,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     capabilityMode: capabilityReport.mode,
     capabilityReport,
     recoveryState,
+    memoryStatus,
   };
 
   return (
