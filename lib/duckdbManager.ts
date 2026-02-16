@@ -230,45 +230,22 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
           if (walError.message?.includes('Table with name') && walError.message?.includes('already exists') && 
               walError.message?.includes('replaying WAL file')) {
             
-            logger.warn('WAL recovery conflict detected, attempting to resolve by clearing corrupted WAL...', walError.message);
+            logger.warn('WAL recovery conflict detected - triggering non-destructive recovery flow', walError.message);
             
+            // Trigger recovery state machine instead of auto-wiping
+            // The user will be guided through recovery options via UI
             try {
-              // Try to clear the problematic WAL file by opening with a fresh database
-              // First terminate the current database instance
-              await db.terminate();
-              
-              // Create a new instance and try to open with recovery
-              db = await createDatabaseInstance();
-              logger.debug('Created fresh DuckDB instance for WAL recovery');
-              
-              // Remove the corrupted OPFS database to start fresh
-              // This is safer than trying to manually fix WAL conflicts
-              const { wipeOpfsData } = await import('./opfsUtils');
-              await wipeOpfsData();
-              logger.info('Cleared corrupted OPFS data to resolve WAL conflict');
-              
-              // Now open a fresh database
-              await db.open({
-                path: dbPath,
-                accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
-              });
-              
-              logger.info('WAL conflict resolved - opened fresh database');
-              
-              // Notify about WAL recovery via recovery callback if available
-              try {
-                const { triggerRecoveryNotification } = await import('./durableOperations');
-                triggerRecoveryNotification(
-                  'Database recovered from corrupted state - starting with fresh session', 
-                  'warning'
-                );
-              } catch (notificationError) {
-                logger.debug('Could not send recovery notification:', notificationError);
-              }
-            } catch (recoveryError) {
-              logger.warn('WAL recovery failed, falling back to in-memory database:', recoveryError);
-              throw recoveryError; // This will trigger the fallback below
+              const { getRecoveryMachine, classifyError } = await import('./recoveryStateMachine');
+              const recoveryMachine = getRecoveryMachine();
+              const errorType = classifyError(walError);
+              recoveryMachine.detectIssue(errorType, walError);
+            } catch (recoveryImportError) {
+              logger.warn('Failed to trigger recovery state machine:', recoveryImportError);
             }
+            
+            // Fall back to in-memory database so the app remains functional
+            // User can then choose to attempt recovery or reset via the recovery UI
+            throw walError;
           } else if (walError.message?.includes('Table with name') && walError.message?.includes('already exists')) {
             // This is a regular catalog error that should be displayed to the user
             // Don't try to recover - just let it bubble up to the UI

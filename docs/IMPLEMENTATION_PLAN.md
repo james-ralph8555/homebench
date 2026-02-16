@@ -7,7 +7,7 @@
 | Program | HomeBench modernization |
 | Mode | Chromium-first, client-only, multi-tab retained |
 | Status | Active |
-| Last Updated | 2026-02-16 |
+| Last Updated | 2026-02-16 (H00 critical bug added) |
 | Owner | Implementation agent |
 | Canonical Tracking | This file is the source of truth for rollout status and commit mapping |
 
@@ -46,10 +46,11 @@ Do not skip this gate for implementation features. Existing rows marked `merged`
 
 | Feature ID | Workstream | Priority | Status | Planned Commit Message | Commit SHA | Depends On | Validation | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| H00 | **CRITICAL BUG**: Recovery state machine falsely claims success when running in degraded in-memory mode | Critical | planned | `fix(H00): recovery state machine must distinguish in-memory fallback from true OPFS recovery` | pending | None | `npm run typecheck && npm run lint && npm test` | See detailed bug description below. Blocks H04 completion. |
 | H01 | Runtime capability contract and compatibility modes (`full`/`degraded`/`unsupported`) | High | merged | `feat(H01): add runtime capability detection and compatibility mode contract` | b532735 | None | `npm run typecheck && npm run lint` | Surface capability mode in context and settings UI. |
 | H02 | DuckDB runtime config single source of truth (version + asset paths + preload alignment) | High | merged | `feat(H02): unify duckdb runtime config and asset path wiring` | 98592c7 | H01 | `npm run typecheck && npm run lint && npm run build` | Remove hardcoded duplicate version literals. |
 | H03 | Multi-tab transport re-architecture (typed protocol, real client routing, resilient failover) | High | merged | `feat(H03): typed multi-tab protocol with discriminated unions` | a059344 | H01, H02 | `npm run typecheck && npm run lint && npm test` | Typed protocol module with discriminated unions, type guards, factories. Browser verified. |
-| H04 | Non-destructive durability and corruption recovery state machine | High | planned | `feat(H04): implement staged non-destructive recovery workflow` | pending | H03 | `npm run typecheck && npm run lint && npm test` | Never auto-wipe OPFS on recovery failure. |
+| H04 | Non-destructive durability and corruption recovery state machine | High | blocked | `feat(H04): implement staged non-destructive recovery workflow` | 1e930bc | H00, H03 | `npm run typecheck && npm run lint && npm test` | **BLOCKED by H00**: Implementation complete but has critical false-success bug. |
 | H05 | Memory budget manager and large-data guardrails for 4GB WASM constraints | High | planned | `feat(H05): add memory budget manager and large dataset guardrails` | pending | H01, H02 | `npm run typecheck && npm run lint && npm test` | Clarify JS heap vs DuckDB memory indicators. |
 | H06 | Experimental threading support behind strict capability gates | High | planned | `feat(H06): gate experimental threading behind verified prerequisites` | pending | H01, H02 | `npm run typecheck && npm run lint` | Require COOP/COEP and clean fallback when unavailable. |
 | H07 | Remote data/CORS preflight UX and actionable error mapping | High | planned | `feat(H07): add remote source preflight checks and cors-focused error guidance` | pending | H01 | `npm run typecheck && npm run lint && npm test` | Preserve client-only architecture (no backend proxy). |
@@ -80,6 +81,7 @@ Each row below is the minimum browser verification script to provide to the user
 
 | Feature ID | Browser Test Script |
 | --- | --- |
+| H00 | Route: `/` -> Query Editor. Actions: (1) Create table with large INSERT to ensure WAL file exists, (2) Forcibly kill browser/tab during query execution, (3) Reopen app. Expected: Recovery UI shows accurate state (degraded/in-memory mode), does NOT claim "recovery successful" when OPFS is inaccessible, offers actual OPFS recovery options (delete corrupt WAL, reconnect) or backup export. |
 | H01 | Route: `/` -> Settings. Actions: inspect runtime capability mode and unavailable-feature messaging. Expected: mode shows `full`/`degraded`/`unsupported` with clear reason text. |
 | H02 | Route: `/` (hard reload). Actions: open DevTools Network and inspect DuckDB worker/WASM asset paths and versions. Expected: all runtime assets resolve from one versioned base path with no mismatched literals. |
 | H03 | Route: `/` in two tabs. Actions: run read query in both tabs, run write in leader tab, observe client behavior during leader refresh. Expected: typed protocol routing works, client reconnects, no silent hangs. |
@@ -106,9 +108,83 @@ Each row below is the minimum browser verification script to provide to the user
 | L06 | Route: `/` -> SQL editor/query hints. Actions: run complex and simple queries and inspect hint pipeline output. Expected: hints shown only when truly active/accurate, no misleading optimization claims. |
 | L07 | Route: `/` -> Settings/export/error dialogs. Actions: keyboard-only navigation (Tab/Shift+Tab/Enter/Escape) and screen-reader label checks. Expected: focus order, labels, and error affordances meet accessibility expectations. |
 
+## H00: Critical Bug Detail - Recovery State Machine False Success
+
+### Summary
+
+The recovery state machine (implemented as part of H04) falsely claims "Recovery Successful" when the database has actually fallen back to in-memory mode with no access to OPFS data. This misleads users into believing their data is safe when it has been lost.
+
+### Reproduction Steps
+
+1. Start with a working database containing tables (e.g., `employees` table)
+2. Execute a large INSERT/CREATE TABLE that writes to WAL:
+   ```sql
+   CREATE TABLE wal_break_test AS
+   SELECT range as id, random() as val
+   FROM range(5000000);
+   ```
+3. **During execution**, forcibly close the browser tab (simulating crash/interruption)
+4. Reopen the app at `http://localhost:3000`
+
+### Observed Behavior (BROKEN)
+
+| Step | What happens | Why it's wrong |
+|------|--------------|----------------|
+| 1 | WAL conflict detected on startup | Correct - WAL replay fails |
+| 2 | Recovery state machine triggered | Correct |
+| 3 | App falls back to in-memory database | Correct (app stays functional) |
+| 4 | User sees "Database Issue Detected" banner | Correct |
+| 5 | User clicks "Run Diagnostics" | Correct |
+| 6 | Diagnostics check **in-memory** DB | **WRONG** - should check OPFS |
+| 7 | In-memory DB works → shows "Recovery Successful" | **WRONG** - OPFS still broken |
+| 8 | Diagnostics shows "Tables: 0" | Misleading - checked wrong DB |
+| 9 | User dismisses, continues working | **DATA LOSS** - original tables gone |
+| 10 | Status bar shows "OPFS: Error: No write access" | Contradicts "recovery successful" |
+
+### Root Cause
+
+The recovery flow in `duckdbManager.ts:228-282` catches WAL errors and falls back to in-memory mode, but the recovery state machine's `runDiagnostics()` method checks the **currently active** database (in-memory) instead of attempting to diagnose the **OPFS database** that failed.
+
+```typescript
+// recoveryStateMachine.ts:251-259 - WRONG
+const manager = DuckDBManager.getInstance();
+// This checks the in-memory fallback DB, not the broken OPFS DB!
+await manager.executeQuery('SELECT 1', [], 'ro');
+```
+
+### Expected Behavior
+
+| State | What should happen |
+|-------|-------------------|
+| WAL conflict detected | Show "Database Issue Detected" with error details |
+| In-memory fallback active | Clearly indicate "Running in degraded mode - data not persisted" |
+| Diagnostics | Attempt to open OPFS separately, report its status |
+| If OPFS recoverable | Offer: (1) Delete corrupt WAL and retry, (2) Export backup from WAL-corrupted state, (3) Full reset |
+| If OPFS unrecoverable | Offer: (1) Export any salvageable data, (2) Full reset with confirmation |
+| Never | Claim "recovery successful" when OPFS is inaccessible |
+
+### Files Requiring Changes
+
+| File | Changes needed |
+|------|----------------|
+| `lib/recoveryStateMachine.ts` | Track `isInMemoryFallback` state; run diagnostics against OPFS directly; fix state transitions |
+| `lib/duckdbManager.ts` | Report fallback status to state machine; expose method to attempt OPFS recovery |
+| `components/RecoveryStatus.tsx` | Show accurate state for fallback mode; display "degraded" indicator |
+| `contexts/DuckDBContext.tsx` | Expose `isInMemoryFallback` flag |
+
+### Acceptance Criteria
+
+- [ ] When app falls back to in-memory mode, UI clearly shows "Degraded Mode" with explanation
+- [ ] "Run Diagnostics" checks OPFS status separately from in-memory DB status
+- [ ] "Recovery Successful" only shown when OPFS is actually working with write access
+- [ ] User can attempt OPFS-specific recovery (delete WAL, reconnect) from the recovery UI
+- [ ] "Export Backup" attempts to export from OPFS if possible, with clear error if not
+- [ ] Screenshots: `docs/h04-browser-verification-3-recovery-state.png` shows the bug in action
+
 ## Execution Order
 
-1. H01 -> H02 -> H03 -> H04 -> H05 -> H10 -> H11.
+1. **H00 (CRITICAL)** -> Fix false-success bug before any other work.
+2. H01 -> H02 -> H03 -> H04 -> H05 -> H10 -> H11.
 2. H06 can proceed after H01 and H02.
 3. H07 and H08 can begin after H01; H08 should follow H05 for memory policy alignment.
 4. H09 should follow H08.

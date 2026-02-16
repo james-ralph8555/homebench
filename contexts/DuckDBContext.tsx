@@ -11,6 +11,10 @@ import type {
 } from '@/lib/types';
 import { toErrorMessage } from '@/lib/utils';
 import { getCapabilityReport, type CapabilityMode, type CapabilityReport } from '@/lib/capabilities';
+import { 
+  getRecoveryMachine, 
+  type RecoveryStateInfo 
+} from '@/lib/recoveryStateMachine';
 
 // Define the shape of the context state
 interface DuckDBContextType {
@@ -29,6 +33,7 @@ interface DuckDBContextType {
   multiTabStatus?: MultiTabStatus;
   capabilityMode: CapabilityMode;
   capabilityReport: CapabilityReport;
+  recoveryState: RecoveryStateInfo;
 }
 
 // Create the context with a default undefined value
@@ -52,8 +57,20 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
   const [multiTabStatus, setMultiTabStatus] = useState<MultiTabStatus>({ initialized: false });
   const [lastCommitTime, setLastCommitTime] = useState<Date | null>(null);
   const [capabilityReport, setCapabilityReport] = useState<CapabilityReport>(() => getCapabilityReport());
+  const [recoveryState, setRecoveryState] = useState<RecoveryStateInfo>(() => getRecoveryMachine().getState());
   const isMountedRef = useRef<boolean>(true);
   const statusUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Subscribe to recovery state changes
+  useEffect(() => {
+    const machine = getRecoveryMachine();
+    const unsubscribe = machine.subscribe((state) => {
+      if (isMountedRef.current) {
+        setRecoveryState(state);
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const initializeDB = async () => {
@@ -214,6 +231,7 @@ export const DuckDBProvider: React.FC<DuckDBProviderProps> = ({ children }) => {
     multiTabStatus,
     capabilityMode: capabilityReport.mode,
     capabilityReport,
+    recoveryState,
   };
 
   return (

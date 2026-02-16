@@ -58,6 +58,11 @@ const SettingsModal = dynamic(() => import('./SettingsModal').then(mod => ({ def
   loading: () => null
 });
 
+const RecoveryStatus = dynamic(() => import('./RecoveryStatus').then(mod => ({ default: mod.RecoveryStatus })), {
+  ssr: false,
+  loading: () => null
+});
+
 const Visualization = dynamic(() => import('./Visualization').then(mod => ({ default: mod.Visualization })), {
   loading: () => <div className="animate-pulse stable-skeleton-visualization" />
 });
@@ -355,6 +360,13 @@ export const TabbedWorkbench: React.FC = () => {
               </Button>
             </div>
           </header>
+
+          {/* Recovery Status Banner */}
+          <div className="px-4 pt-4">
+            <Suspense fallback={null}>
+              <RecoveryStatus />
+            </Suspense>
+          </div>
 
           {/* Tab Content */}
           <TabsContent value="upload">
