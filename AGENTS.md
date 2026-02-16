@@ -18,8 +18,25 @@ Do not create ad-hoc assistant-specific docs outside these canonical docs unless
 2. Implement one feature row per commit unless the row explicitly allows splitting.
 3. Use branch naming: `feat/<feature-id>-<short-slug>`.
 4. Use commit message style: `type(<feature-id>): <summary>`.
-5. After committing, update that row's `Status` and `Commit SHA`.
-6. Keep `Status` as `in_progress` until validation for that row passes.
+5. Run the command subset listed in the target feature's `Validation` column.
+6. Stop and ask the user how they want browser verification performed before closing the feature.
+7. Provide explicit browser test steps (route, actions, expected outcome) for that feature.
+8. Do not mark a feature row as `merged` until the user confirms browser verification results.
+9. After user-confirmed browser verification, commit and update that row's `Status` and `Commit SHA`.
+
+## Crush Browser Verification Gate
+
+Primary implementation environment is Charm Crush editor. For every feature row:
+
+1. Finish code changes and CLI validation.
+2. Pause and send this checkpoint prompt:
+   - `Feature <ID> is ready for browser verification in Crush. Choose: (1) you run the steps and report, (2) I run and report, (3) adjust test steps first.`
+3. Provide a short browser checklist for the feature:
+   - `URL/Route`
+   - `Setup/fixtures`
+   - `Actions`
+   - `Expected results`
+4. Wait for user confirmation before setting the row to `merged`.
 
 ## Build, Test, and Dev Commands
 
@@ -29,8 +46,6 @@ Do not create ad-hoc assistant-specific docs outside these canonical docs unless
 - `npm run lint`: lint checks.
 - `npm run typecheck`: TypeScript checks.
 - `npm test`: unit tests.
-
-Run the command subset listed in the target feature's `Validation` column.
 
 ## Repository Structure
 
