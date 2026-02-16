@@ -53,7 +53,14 @@ async function copyFileWithCompression(filename) {
 async function main() {
   console.log(`Copying DuckDB assets to ${dst} (public dir)`);
   
-  const files = ['duckdb-browser-eh.worker.js', 'duckdb-eh.wasm'];
+  // Copy both EH (enhanced) and MVP (minimum) bundles
+  // EH is preferred for performance, MVP is a fallback for compatibility
+  const files = [
+    'duckdb-browser-eh.worker.js',
+    'duckdb-eh.wasm',
+    'duckdb-browser-mvp.worker.js',
+    'duckdb-mvp.wasm',
+  ];
   
   for (const filename of files) {
     await copyFileWithCompression(filename);

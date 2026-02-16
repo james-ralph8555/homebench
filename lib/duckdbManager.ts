@@ -15,6 +15,7 @@
 
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { logger } from '@/lib/logger';
+import { DUCKDB_BUNDLES } from '@/lib/duckdbConfig';
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -89,23 +90,8 @@ export function isOpfsSupported(): boolean {
  * @returns {Promise<duckdb.DuckDBBundle>} Bundle configuration for DuckDB
  */
 async function getDuckDbBundle(options: DatabaseOptions = {}): Promise<duckdb.DuckDBBundle> {
-  const DUCKDB_VERSION = '1.29.1-dev269.0';
-  const BASE_URL = `/duckdb/${DUCKDB_VERSION}`;
-
-  // Define bundles using public URLs - no webpack bundling needed
-  const MANUAL_BUNDLES: duckdb.DuckDBBundles = {
-    mvp: {
-      mainModule: `${BASE_URL}/duckdb-mvp.wasm`,
-      mainWorker: `${BASE_URL}/duckdb-browser-mvp.worker.js`,
-    },
-    eh: {
-      mainModule: `${BASE_URL}/duckdb-eh.wasm`,
-      mainWorker: `${BASE_URL}/duckdb-browser-eh.worker.js`,
-    },
-  };
-  
   // Select a bundle based on browser checks
-  const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+  const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
   logger.debug('Selected DuckDB bundle:', bundle);
   return bundle;
 }

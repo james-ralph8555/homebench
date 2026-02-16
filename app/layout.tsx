@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { DuckDBProvider } from '@/contexts/DuckDBContext'
+import { PRELOAD_ASSETS } from '@/lib/duckdbConfig'
 import './critical.css'
 import './globals.css'
 
@@ -33,8 +34,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <head>
         {/* Preload critical WASM assets for faster loading */}
-        <link rel="preload" href="/duckdb/1.29.1-dev269.0/duckdb-eh.wasm" as="fetch" type="application/wasm" crossOrigin="anonymous" />
-        <link rel="preload" href="/duckdb/1.29.1-dev269.0/duckdb-browser-eh.worker.js" as="script" crossOrigin="anonymous" />
+        <link rel="preload" href={PRELOAD_ASSETS.WASM} as="fetch" type="application/wasm" crossOrigin="anonymous" />
+        <link rel="preload" href={PRELOAD_ASSETS.WORKER} as="script" crossOrigin="anonymous" />
         
         {/* Note: rely on CDN edge compression; no prefetch of .br/.gz variants */}
       </head>
