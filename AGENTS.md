@@ -17,25 +17,32 @@ Do not create ad-hoc assistant-specific docs outside these canonical docs unless
 1. Identify the target feature row (`Hxx` or `Lxx`) in `docs/IMPLEMENTATION_PLAN.md`.
 2. Implement one feature row per commit unless the row explicitly allows splitting.
 3. Use commit message style: `type(<feature-id>): <summary>`.
-5. Run the command subset listed in the target feature's `Validation` column.
-6. Stop and ask the user how they want browser verification performed before closing the feature.
-7. Provide explicit browser test steps (route, actions, expected outcome) for that feature.
-8. Do not mark a feature row as `merged` until the user confirms browser verification results.
-9. After user-confirmed browser verification, commit and update that row's `Status` and `Commit SHA`.
+4. Run the command subset listed in the target feature's `Validation` column.
+5. Run automated browser verification via Chrome DevTools MCP (see Browser Verification section).
+6. Notify user with test results and request manual validation.
+7. Do not mark a feature row as `merged` until user confirms validation.
+8. After user confirmation, update the row's `Status` and `Commit SHA`.
 
-## Crush Browser Verification Gate
+## Browser Verification with MCP
 
-Primary implementation environment is Charm Crush editor. For every feature row:
+After completing code changes and CLI validation, automatically run browser verification:
 
-1. Finish code changes and CLI validation.
-2. Pause and send this checkpoint prompt:
-   - `Feature <ID> is ready for browser verification in Crush. Choose: (1) you run the steps and report, (2) I run and report, (3) adjust test steps first.`
-3. Provide a short browser checklist for the feature:
-   - `URL/Route`
-   - `Setup/fixtures`
-   - `Actions`
-   - `Expected results`
-4. Wait for user confirmation before setting the row to `merged`.
+1. Navigate to the relevant route: `mcp_chrome-devtools_navigate_page` to `http://localhost:3000`
+2. Interact with the feature using `mcp_chrome-devtools_click`, `mcp_chrome-devtools_fill`, etc.
+3. Capture state with `mcp_chrome-devtools_take_screenshot` and `mcp_chrome-devtools_take_snapshot`
+4. Check for errors with `mcp_chrome-devtools_list_console_messages`
+5. Report results to user with:
+   - Test steps performed
+   - Screenshots/snapshots captured
+   - Any console errors or unexpected behavior
+   - Request manual user validation
+
+Prerequisite: Chrome must be running with remote debugging:
+```bash
+chromium --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-profile
+```
+
+If Chrome MCP is unavailable, fall back to providing test steps for manual user validation.
 
 ## Chrome DevTools MCP
 
@@ -58,14 +65,6 @@ All tools are prefixed with `mcp_chrome-devtools_`:
 - **Debugging**: `take_screenshot`, `take_snapshot`, `evaluate_script`, `list_console_messages`
 - **Performance**: `performance_start_trace`, `performance_stop_trace`, `performance_analyze_insight`
 - **Network**: `list_network_requests`, `get_network_request`
-
-### Browser Verification with MCP
-
-When running option (2) from the verification gate, use these tools to:
-1. `mcp_chrome-devtools_navigate_page` to load `http://localhost:3000`
-2. `mcp_chrome-devtools_take_screenshot` to capture state
-3. `mcp_chrome-devtools_click`/`mcp_chrome-devtools_fill` for interactions
-4. `mcp_chrome-devtools_list_console_messages` to check for errors
 
 ## Build, Test, and Dev Commands
 
