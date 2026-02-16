@@ -798,6 +798,43 @@ export async function checkConnectionHealth(): Promise<ConnectionHealth> {
 }
 
 /**
+ * Creates a table from a remote URL with preflight validation
+ * Note: Caller should run checkRemoteSource() first to validate CORS and accessibility
+ */
+export const createTableFromRemoteUrl = async (
+  tableName: string,
+  url: string,
+  fileType: string
+): Promise<WriteResult> => {
+  // Sanitize URL for safe SQL inclusion (basic protection against injection)
+  // The URL should already be validated by checkRemoteSource()
+  const sanitizedUrl = url.replace(/'/g, "''");
+  
+  let query = '';
+  
+  switch (fileType.toLowerCase()) {
+    case 'csv':
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_csv_auto('${sanitizedUrl}')`;
+      break;
+    case 'parquet':
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_parquet('${sanitizedUrl}')`;
+      break;
+    case 'json':
+    case 'jsonl':
+    case 'ndjson':
+      query = `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM read_json_auto('${sanitizedUrl}', maximum_object_size = 104857600)`;
+      break;
+    default:
+      throw new Error(`Unsupported remote file type: ${fileType}`);
+  }
+  
+  return executeDurableWrite(query, [], {
+    description: `Loading remote data from ${url} into table "${tableName}"`,
+    retryAttempts: 3
+  });
+};
+
+/**
  * Force connection recovery (for external triggers)
  */
 export async function forceConnectionRecovery(description = 'Manual recovery'): Promise<boolean> {

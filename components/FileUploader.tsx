@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { FolderIcon } from './icons';
+import { FolderIcon, GlobeIcon } from './icons';
 import { useDuckDB } from '@/contexts/DuckDBContext';
 import { markTableAsUploaded } from '@/lib/tableMetadataStore';
 import { createTableFromFile, createTableFromFileWithSchema } from '@/lib/durableOperations';
 import { SchemaPreviewInline } from './SchemaPreviewInline';
+import { RemoteUrlInput } from './RemoteUrlInput';
 import type { TypeOverride, ColumnInfo } from '@/lib/schemaDetection';
 import { logger } from '@/lib/logger';
 import { toErrorMessage } from '@/lib/utils';
@@ -321,6 +322,17 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onFileUploaded, onSc
             </div>
           )}
         </div>
+      </div>
+
+      {/* Remote URL Input Section */}
+      <div className="w-full stable-container mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <GlobeIcon className="w-5 h-5 text-gray-500" />
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Or load from URL
+          </h3>
+        </div>
+        <RemoteUrlInput onFileUploaded={onFileUploaded} />
       </div>
 
       {/* Inline Schema Preview */}
