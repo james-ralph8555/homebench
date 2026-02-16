@@ -16,8 +16,7 @@ Do not create ad-hoc assistant-specific docs outside these canonical docs unless
 
 1. Identify the target feature row (`Hxx` or `Lxx`) in `docs/IMPLEMENTATION_PLAN.md`.
 2. Implement one feature row per commit unless the row explicitly allows splitting.
-3. Use branch naming: `feat/<feature-id>-<short-slug>`.
-4. Use commit message style: `type(<feature-id>): <summary>`.
+3. Use commit message style: `type(<feature-id>): <summary>`.
 5. Run the command subset listed in the target feature's `Validation` column.
 6. Stop and ask the user how they want browser verification performed before closing the feature.
 7. Provide explicit browser test steps (route, actions, expected outcome) for that feature.

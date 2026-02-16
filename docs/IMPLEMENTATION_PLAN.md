@@ -21,8 +21,7 @@
 ## Commit Tracking Protocol
 
 1. Implement exactly one feature row per commit unless the row explicitly allows split commits.
-2. Branch naming convention: `feat/<feature-id>-<short-slug>`.
-3. Commit message convention: `type(<feature-id>): <summary>`.
+2. Commit message convention: `type(<feature-id>): <summary>`.
 4. Run the row-specific CLI validation command(s) from the `Validation` column.
 5. Stop and ask the user how they want browser verification run in Charm Crush editor.
 6. Provide browser test steps for that feature (route, setup, actions, expected result).
