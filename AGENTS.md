@@ -1,51 +1,79 @@
-# Repository Guidelines
+# HomeBench Agent Guide
 
-## Project Structure & Module Organization
-- `app/`: Next.js App Router (routes, layouts, pages). Keep route segments lowercase with hyphens; colocate page-level components when scoped to a route.
-- `components/`: Reusable React components (PascalCase filenames). Keep UI-only components pure; prefer server components by default and add `"use client"` only when required.
-- `contexts/`: React context providers and hooks for shared state.
-- `lib/`: Utilities, DuckDB/OPFS helpers, and shared logic.
-- `.docs_for_ai/`: Reference docs for architecture and agent helpers.
+This document is the operational guide for coding agents working in this repository.
 
-## Build, Test, and Development Commands
-- `npm run dev`: Start the local dev server at `http://localhost:3000`.
-- `npm run build`: Production build (Next.js + WASM assets).
-- `npm start`: Serve the production build.
-- `npm run lint`: Run ESLint using `next/core-web-vitals` rules.
-- `npm run typecheck`: TypeScript type checks with strict settings.
+## Canonical Sources
 
-## Coding Style & Naming Conventions
-- **Language**: TypeScript, strict mode enabled. Use `@/` path alias for absolute imports (see `tsconfig.json`).
-- **Indentation**: 2 spaces; keep existing code style consistent.
-- **Naming**: `PascalCase` for React components, `camelCase` for functions/vars, `kebab-case` route segments in `app/`.
-- **Tailwind**: Prefer semantic component props; keep class lists readable and grouped logically.
-- **Linting**: Fix issues surfaced by `npm run lint`; do not disable rules without justification.
+- Master implementation tracker: `docs/IMPLEMENTATION_PLAN.md`
+- Project overview: `README.md`
+- App architecture: `app/README.md`
+- Engine/storage internals: `lib/README.md`
+- UI/component map: `components/README.md`
 
-## UI System (shadcn/ui)
-- **Primitives location**: Reusable UI primitives live under `components/ui/` (e.g., `components/ui/Button.tsx`, `Dialog.tsx`, `Tabs.tsx`). Import with `@/components/ui/...`.
-- **Import aliases**: Use `@/components` and `@/lib/utils` (see `components.json` aliases). Use `cn` from `@/lib/utils` to compose Tailwind classes.
-- **File naming**: Keep UI primitive filenames in `PascalCase` to match the rest of the codebase (note: this differs from shadcn defaults).
-- **Styling**: Use Tailwind tokens defined via CSS variables. Avoid hardcoded colors; prefer `bg-background`, `text-foreground`, `border`, `muted`, `accent`, etc. Dark mode uses the `dark` class with variables in `app/globals.css` and mappings in `tailwind.config.js`.
-- **Variants**: Prefer component `variant`/`size` props on primitives (e.g., `Button`) over ad‑hoc classes when available. Use `className` for layout tweaks only.
-- **Server vs client**: Prefer server components by default. Add `"use client"` only where interactivity is required (e.g., dropdowns, dialogs). Many primitives are server‑compatible; wrappers that use events require client.
-- **Adding primitives**: The repo is configured with `components.json` (`rsc: true`, base color `slate`). When adding new shadcn components, generate with the shadcn CLI and then adjust filenames to `PascalCase` to match our convention.
-- **Do not**: Add new UI libraries or global CSS frameworks. Compose complex views from the primitives and local components in `components/`.
+Do not create ad-hoc assistant-specific docs outside these canonical docs unless explicitly requested.
 
-## Testing Guidelines
-- No formal test runner is configured yet. If adding tests, prefer Vitest + React Testing Library.
-- Place tests alongside source as `*.test.ts(x)` or in `__tests__/` mirrors.
-- Aim for focused unit tests on `lib/` and interaction tests for complex components.
-- If adding tests, include an `npm test` script and document how to run them.
+## Required Workflow
 
-## Commit & Pull Request Guidelines
-- **Commits**: Follow Conventional Commits (e.g., `feat:`, `fix:`, `docs:`, `build:`, `chore:`). Recent history uses `chore`, `build`, `docs`.
-- **PRs**: Provide a clear description, linked issues, before/after screenshots for UI, and test plan. Ensure `npm run lint` and `npm run typecheck` pass. Update `README.md` when behavior or architecture changes.
+1. Identify the target feature row (`Hxx` or `Lxx`) in `docs/IMPLEMENTATION_PLAN.md`.
+2. Implement one feature row per commit unless the row explicitly allows splitting.
+3. Use branch naming: `feat/<feature-id>-<short-slug>`.
+4. Use commit message style: `type(<feature-id>): <summary>`.
+5. After committing, update that row's `Status` and `Commit SHA`.
+6. Keep `Status` as `in_progress` until validation for that row passes.
 
-## Security & Configuration Tips
-- This is a client-side, privacy-first app; never commit secrets or large datasets.
-- Keep `asyncWebAssembly` enabled in `next.config.js`; verify DuckDB-WASM loads in modern browsers.
-- Respect CORS when referencing remote files; prefer local uploads during development.
+## Build, Test, and Dev Commands
 
-## AI Agent Operating Notes
-- **Search scope**: Do not search/grep inside `node_modules/`. Limit repository scans to source directories (e.g., `app/`, `components/`, `contexts/`, `lib/`, and project config files).
-- **Examples**: Use `rg -n "pattern" -g '!node_modules/**'` or `grep -R --exclude-dir=node_modules "pattern" .` to keep `node_modules/` excluded.
+- `npm run dev`: start local development server.
+- `npm run build`: production build.
+- `npm start`: serve production build.
+- `npm run lint`: lint checks.
+- `npm run typecheck`: TypeScript checks.
+- `npm test`: unit tests.
+
+Run the command subset listed in the target feature's `Validation` column.
+
+## Repository Structure
+
+- `app/`: Next.js app router and global layout/styles.
+- `components/`: UI components and `components/ui` primitives.
+- `contexts/`: context providers (including DuckDB runtime context).
+- `hooks/`: reusable React hooks.
+- `lib/`: DuckDB, multitab, persistence, ingestion, export, and utility logic.
+- `docs/`: implementation planning and tracking docs.
+- `test/`, `lib/__tests__/`: Vitest setup and tests.
+
+## Coding Standards
+
+- Language: TypeScript (strict mode).
+- Imports: prefer `@/` aliases.
+- React: prefer server components unless client interactivity is required.
+- Naming: `PascalCase` components, `camelCase` functions/variables.
+- Styling: prefer Tailwind tokens (`bg-background`, `text-foreground`, etc.) over hardcoded colors.
+- Keep UI primitives under `components/ui/`.
+
+## Browser Compatibility Policy
+
+- Product direction is Chromium-first with explicit degraded behavior where features are unavailable.
+- Architecture remains client-only (no default backend proxy).
+- Multi-tab support is retained and hardened (not removed).
+- Always document compatibility-impacting changes in:
+  - `README.md`
+  - `app/README.md`
+  - `lib/README.md`
+  - `components/README.md`
+  - `docs/IMPLEMENTATION_PLAN.md` (status + SHA)
+
+## Documentation Hygiene
+
+When behavior changes:
+
+1. Update user-facing docs and internal architecture docs in the same PR.
+2. Remove contradictory or stale claims instead of layering extra caveats.
+3. Keep troubleshooting steps actionable and ordered from least destructive to most destructive.
+
+## Search and Editing Guidance
+
+- Do not scan `node_modules`.
+- Prefer `rg` for search and `rg --files` for file discovery.
+- Keep changes scoped to the active feature row.
+- Avoid unrelated refactors in the same commit.

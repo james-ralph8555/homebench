@@ -9,6 +9,13 @@ HomeBench is a client-only Next.js application (App Router) that runs DuckDB ent
 - Persistence: OPFS stores the DuckDB database; IndexedDB stores saved queries and table metadata
 - Deployment: Static export + CDN; no server required
 
+## Canonical Tracker
+
+Implementation progress is tracked in `docs/IMPLEMENTATION_PLAN.md`.
+
+- Compatibility and runtime hardening: `H01`-`H12`
+- Lower-priority cleanup and polish: `L01`-`L07`
+
 ## System Diagram
 
 ```mermaid
@@ -45,7 +52,7 @@ flowchart LR
 - Firefox 111+
 - Safari 15.2+
 
-Requires WebAssembly and modern JavaScript features. If OPFS is unavailable, the app runs in memory (no persistence), and client tabs will degrade capabilities accordingly.
+Requires WebAssembly and modern JavaScript features. The modernization roadmap targets Chromium-first behavior with explicit compatibility modes (`full`, `degraded`, `unsupported`) so unsupported capabilities fail predictably with actionable guidance.
 
 ## Limitations
 
@@ -100,7 +107,7 @@ sequenceDiagram
 
 - Roles: Single leader tab (owns DuckDB + OPFS); client tabs proxy queries.
 - Election: Web Locks API (`homebench:duckdb`) via `lib/multitab/boot.ts`; heartbeats over `BroadcastChannel`.
-- Transport: Queries stream over a simulated `MessagePort` on `BroadcastChannel`.
+- Transport: Current query transport uses a simulated `MessagePort` on `BroadcastChannel`; re-architecture is tracked in `docs/IMPLEMENTATION_PLAN.md` (`H03`).
 - Streaming: Arrow IPC chunks (default 2MB) or JSON pages (`defaultChunkRows` = 20k). See `lib/multitab/types.ts`.
 - Failover: Clients reconnect with exponential backoff; in‑flight queries error with `LeaderCrashError`.
 - API surface: `DuckDBManager.executeQuery/executeStreamingQuery` and `lib/durableOperations` hide leader/client differences.
@@ -114,6 +121,7 @@ See `lib/multitab/README.md` for details.
 - UI feedback: `lib/durableOperations.registerWriteCallbacks` drives a global “saving” indicator and commit success timestamps. Recovery messages are logged to the console.
 - Recovery: On startup, `checkDatabaseRecovery()` infers restored sessions and notifies the user (e.g., “Session restored with N tables”).
 - Session utilities: `hooks/usePersistence` exposes `loadSession`, `checkSessionExists`, `deleteSession`, and size formatting.
+- Planned hardening: staged non-destructive recovery with explicit user-confirmed wipe fallback is tracked in `docs/IMPLEMENTATION_PLAN.md` (`H04`).
 
 ## Data Import
 

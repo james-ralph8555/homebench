@@ -2,6 +2,10 @@
 
 Core browser engine, persistence, and utilities for HomeBench. These modules integrate DuckDB‑WASM, OPFS persistence, and IndexedDB metadata. For multi‑tab coordination, transport, and query streaming, see `lib/multitab/README.md`.
 
+## Canonical Tracker
+
+Modernization status is tracked in `docs/IMPLEMENTATION_PLAN.md`. Update the matching feature row (`Hxx`/`Lxx`) and commit SHA whenever implementation work lands.
+
 ## Module Map
 
 - `duckdbManager.ts`: Boots multi‑tab, initializes DuckDB‑WASM (worker + bundle selection), opens OPFS DB, exposes unified query/streaming APIs, lifecycle helpers, and status.
@@ -16,7 +20,6 @@ Core browser engine, persistence, and utilities for HomeBench. These modules int
 - `queryStore.ts`: Saved queries, history, and preferences (Dexie/IndexedDB).
 - `tableMetadataStore.ts`: Table provenance metadata (IndexedDB).
 - `performanceUtils.ts` / `chartPerformanceUtils.ts`: Query/chart heuristics and metrics.
-- `autoSaver.ts`: Write detection, checkpoint/flush orchestration, batch writes.
 - `multiTabQuery.ts`: Convenience wrappers for read/stream; legacy write helper is deprecated.
 - `multitab/*`: Leader election and transport. See `multitab/README.md`.
 - `utils.ts`: `cn()` Tailwind class combiner.
@@ -84,8 +87,8 @@ sequenceDiagram
   participant UI as SQLEditor/TabbedWorkbench
   participant Ops as DurableOps
   participant DB as DuckDB-WASM
-  UI->>Ops: analyzeQuery(sql) + optimizeQuery(sql)
-  Ops->>DB: query(optimizedSql)
+  UI->>Ops: executeReadQuery(sql)
+  Ops->>DB: query(sql)
   DB-->>Ops: Arrow Table
   Ops-->>UI: render ResultsGrid + metrics
 ```
@@ -128,7 +131,7 @@ sequenceDiagram
 
 ## Multi‑Tab
 
-See `lib/multitab/README.md` for roles (leader/client), transport, streaming, and failover behavior.
+See `lib/multitab/README.md` for roles (leader/client), transport, streaming, and failover behavior. Note: transport hardening and protocol rework are tracked in `docs/IMPLEMENTATION_PLAN.md` (`H03`).
 
 ## Implementation Status
 
@@ -137,7 +140,7 @@ See `lib/multitab/README.md` for roles (leader/client), transport, streaming, an
 - Rich data support: Implemented for CSV/Parquet/JSON/XLSX via `read_*` helpers (including `read_xlsx`).
 - Export formats: Implemented for CSV/Parquet/JSON using `COPY (...) TO` and browser download.
 - Schema Explorer: Implemented with parallel info loading and a short cache (~5s).
-- Query auto‑optimization: Implemented (auto LIMIT injection + basic hints panel).
+- Query optimization utilities: Present in `performanceUtils`; end-to-end product hardening and consistency are tracked in `docs/IMPLEMENTATION_PLAN.md` (`L06`).
 - Results virtualization/pagination: Implemented (AG Grid heuristics).
 - Performance monitoring: Query duration + memory delta; `MemoryUsageBar` UI.
 - Session persistence: Implemented. Full DB saved/loaded via OPFS.

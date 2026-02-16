@@ -42,7 +42,7 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - **Persistent sessions**: Full database snapshots saved to Origin Private File System (OPFS)
 - **Multi-tab support**: Single-writer lock mechanism enables concurrent multi-tab usage
 - **Virtualized results grid**: AG Grid with row/column virtualization for smooth performance on large datasets
-- **Real-time performance monitoring**: Query optimization with automatic LIMIT injection and memory usage tracking
+- **Real-time performance monitoring**: Query duration and memory usage tracking
 - **Interactive schema explorer**: Database schema browser with caching for quick navigation
 - **Data export**: Export query results in CSV, Parquet, and JSON formats
 - **Visualization**: Generate charts from query results using Plotly.js
@@ -61,6 +61,14 @@ New to DuckDB SQL? Start here: https://duckdb.org/docs/stable/sql/introduction
 - User-defined functions (JS/WASM) for lightweight transforms
 - Dashboard builder and advanced charting
 - Success metrics for core flows (import → query → export)
+
+## Canonical Implementation Tracker
+
+All modernization and compatibility work is tracked in:
+
+- `docs/IMPLEMENTATION_PLAN.md`
+
+This file is the execution source of truth, including per-feature status, branch naming, and commit SHA tracking.
 
 ## Quick Start
 
@@ -141,13 +149,13 @@ npm start
 - Single-threaded execution (experimental threading available)
 - CORS required for remote data access
 - No TCP/socket connections (PostgreSQL scanner unavailable)
-- JSON files >16MB may exceed DuckDB's `maximum_object_size` limit
+- JSON object-size limits apply (`maximum_object_size`); very large JSON objects may fail to load
 
 For detailed technical specifications, see the individual component and library documentation.
 
 ## Troubleshooting
 
-- Database write capability corrupted: If you see an error like “Database write capability corrupted…”, first refresh the page and retry. If it persists, open Settings → Storage and use “Clear OPFS data”, then reload the app and re‑import your files. This clears the local database files stored in your browser.
+- Database write capability corrupted: If you see an error like “Database write capability corrupted…”, first refresh the page and retry. If it persists, use Settings → Storage actions in this order: export session snapshot (if possible), run diagnostics, then wipe OPFS data only as a last resort. The staged recovery hardening work is tracked in `docs/IMPLEMENTATION_PLAN.md` (`H04`).
 
 ## Known Issues
 
@@ -177,6 +185,7 @@ homebench/
 - **Component Documentation**: Individual README files in `app/`, `components/`, and `lib/` directories  
 - **Implementation Status**: Detailed architecture and non-functional behavior specifications
 - **Testing Strategy**: Vitest configuration with jsdom environment and browser API polyfills
+- **Modernization Tracker**: `docs/IMPLEMENTATION_PLAN.md` (feature-by-feature progress + commit status)
 
 ## Available Scripts
 

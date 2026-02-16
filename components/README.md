@@ -2,6 +2,10 @@
 
 This folder contains the UI for the in-browser SQL workbench. Components are React (TypeScript) and organized by responsibility. Complex views compose smaller UI primitives under `components/ui`.
 
+## Canonical Tracker
+
+UI modernization and compatibility tasks are tracked in `docs/IMPLEMENTATION_PLAN.md`. Use that file for feature status and commit SHA updates.
+
 ## Component Map
 
 ```mermaid
@@ -45,7 +49,6 @@ graph TD
 - `PlotlyChart`: A wrapper around the Plotly.js library that handles chart rendering and updates.
 - `ChartConfigSidebar`: A sidebar that allows users to configure the chart (e.g., chart type, axes, labels).
 - `FileUploader`: Ingests local files into DuckDB tables.
-- `FileUploader`: Ingests local files into DuckDB tables. Exposes optional callbacks `onSchemaPreviewShow()`/`onSchemaPreviewHide()` so parents can coordinate surrounding UI (e.g., hide data preview while the inline schema preview is active).
 - `DataPreview`: Lightweight preview of a selected table.
 - `SchemaPreviewInline`: Inline schema detection and type override UI used by `FileUploader`. Shows a live "converted" sample using `lib/durableOperations.executeReadQuery` with `TRY_CAST` for modified columns, so users can validate transformations before importing.
 - `SchemaExplorer`: Browses database schema and cached metadata.
@@ -102,6 +105,7 @@ Reusable, focused building blocks located in `components/ui/`:
 ## UX Notes
 
 - `TabbedWorkbench` hides the table Data Preview while the `FileUploader`'s schema preview is shown to avoid split attention and layout shifts.
+- Compatibility-mode messaging, staged recovery UX, and diagnostics polish are tracked in `docs/IMPLEMENTATION_PLAN.md` (`H01`, `H04`, `L05`).
 
 ## SQLEditor
 
