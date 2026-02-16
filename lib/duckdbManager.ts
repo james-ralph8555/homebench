@@ -32,6 +32,8 @@ export interface DatabaseState {
   db: duckdb.AsyncDuckDB | null;
   /** Whether OPFS persistence is being used (vs in-memory) */
   isOpfsSupported: boolean;
+  /** Whether the database fell back to in-memory mode due to OPFS failure */
+  isInMemoryFallback: boolean;
 }
 
 /**
@@ -203,6 +205,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     
     // Step 5: Attempt to open database with OPFS or fallback
     let actuallyUsingOpfs = opfsSupported;
+    let isInMemoryFallback = false;
     const dbPath = options.databasePath || 'opfs://homebench.db';
     
     try {
@@ -266,6 +269,7 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
     } catch (error) {
       logger.warn('Failed to open OPFS database, falling back to in-memory:', error);
       actuallyUsingOpfs = false;
+      isInMemoryFallback = true;
       
       // Make sure we have a clean database instance for in-memory fallback
       try {
@@ -279,13 +283,25 @@ export async function initializeDatabase(options: DatabaseOptions = {}): Promise
         path: ':memory:',
         accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
       });
+      
+      // Trigger recovery state machine for fallback scenario
+      try {
+        const { getRecoveryMachine, classifyError } = await import('./recoveryStateMachine');
+        const recoveryMachine = getRecoveryMachine();
+        const errorType = classifyError(error);
+        recoveryMachine.detectIssue(errorType, error instanceof Error ? error : new Error(String(error)));
+        recoveryMachine.setInMemoryFallback(true);
+      } catch (recoveryImportError) {
+        logger.warn('Failed to trigger recovery state machine for fallback:', recoveryImportError);
+      }
     }
     
     logger.info('Database initialized successfully');
     
     return {
       db,
-      isOpfsSupported: actuallyUsingOpfs
+      isOpfsSupported: actuallyUsingOpfs,
+      isInMemoryFallback
     };
     
   } catch (error) {
@@ -404,7 +420,8 @@ export class DuckDBManager {
       
       this.dbState = {
         db: directDbState.db, // Leader has direct DB access
-        isOpfsSupported: directDbState.isOpfsSupported
+        isOpfsSupported: directDbState.isOpfsSupported,
+        isInMemoryFallback: directDbState.isInMemoryFallback
       };
       
       // Initialize the leader system with the database we just created
@@ -420,7 +437,8 @@ export class DuckDBManager {
       logger.info('Database manager initialized as CLIENT');
       this.dbState = {
         db: null, // Clients don't have direct DB access
-        isOpfsSupported: true // Shared through leader
+        isOpfsSupported: true, // Shared through leader
+        isInMemoryFallback: false // Clients inherit leader's state
       };
     }
     
@@ -507,6 +525,63 @@ export class DuckDBManager {
     }
     this.initPromise = null;
     DuckDBManager.instance = null;
+  }
+
+  /**
+   * Check if the database is running in in-memory fallback mode
+   */
+  public isInMemoryFallback(): boolean {
+    return this.dbState?.isInMemoryFallback ?? false;
+  }
+
+  /**
+   * Attempt to recover OPFS access by deleting WAL files and reconnecting
+   * Returns true if recovery was successful, false otherwise
+   */
+  public async attemptOpfsRecovery(): Promise<{ success: boolean; message: string }> {
+    if (!isOpfsSupported()) {
+      return { success: false, message: 'OPFS is not supported in this browser' };
+    }
+
+    try {
+      const opfsRoot = await navigator.storage.getDirectory();
+      
+      // Delete WAL and related files
+      const filesToDelete = ['homebench.db.wal', 'homebench.db'];
+      let deletedCount = 0;
+      
+      for (const fileName of filesToDelete) {
+        try {
+          await opfsRoot.removeEntry(fileName);
+          logger.info(`Deleted OPFS file during recovery: ${fileName}`);
+          deletedCount++;
+        } catch (e: any) {
+          if (e.name !== 'NotFoundError') {
+            logger.warn(`Could not delete ${fileName}:`, e);
+          }
+        }
+      }
+
+      if (deletedCount === 0) {
+        return { success: false, message: 'No OPFS files found to recover' };
+      }
+
+      // Reset and reinitialize the database
+      await this.reset();
+      
+      // Trigger a fresh initialization
+      const newState = await this.getDatabaseState();
+      
+      if (!newState.isInMemoryFallback && newState.isOpfsSupported) {
+        return { success: true, message: 'OPFS recovery successful' };
+      } else {
+        return { success: false, message: 'Recovery attempted but still running in degraded mode' };
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      logger.error('OPFS recovery attempt failed:', e);
+      return { success: false, message: `Recovery failed: ${message}` };
+    }
   }
 
   /**

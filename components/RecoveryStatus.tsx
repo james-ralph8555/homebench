@@ -20,6 +20,7 @@ const STATE_COLORS: Record<string, string> = {
   recovering: 'bg-blue-100 dark:bg-blue-900 border-blue-500',
   recovered: 'bg-green-100 dark:bg-green-900 border-green-500',
   failed: 'bg-red-100 dark:bg-red-900 border-red-500',
+  degraded: 'bg-orange-100 dark:bg-orange-900 border-orange-500',
 };
 
 const STATE_ICONS: Record<string, string> = {
@@ -30,6 +31,7 @@ const STATE_ICONS: Record<string, string> = {
   recovering: '⋯',
   recovered: '✓',
   failed: '!',
+  degraded: '⚠',
 };
 
 export const RecoveryStatus: React.FC = () => {
@@ -127,8 +129,10 @@ export const RecoveryStatus: React.FC = () => {
     return null;
   }
 
-  const colorClass = STATE_COLORS[stateInfo.state] || STATE_COLORS.detected;
-  const icon = STATE_ICONS[stateInfo.state] || '?';
+  const isDegraded = stateInfo.isInMemoryFallback;
+  const effectiveState = isDegraded ? 'degraded' : stateInfo.state;
+  const colorClass = STATE_COLORS[effectiveState] || STATE_COLORS.detected;
+  const icon = STATE_ICONS[effectiveState] || '?';
 
   return (
     <>
@@ -137,14 +141,19 @@ export const RecoveryStatus: React.FC = () => {
           <span className="text-xl" aria-hidden="true">{icon}</span>
           <div className="flex-1">
             <h3 className="font-semibold text-sm">
-              {stateInfo.state === 'detected' && 'Database Issue Detected'}
-              {stateInfo.state === 'recoverable' && 'Recovery Available'}
-              {stateInfo.state === 'unrecoverable' && 'Database Corruption Detected'}
-              {stateInfo.state === 'recovering' && 'Recovering...'}
-              {stateInfo.state === 'recovered' && 'Recovery Successful'}
-              {stateInfo.state === 'failed' && 'Recovery Failed'}
+              {isDegraded && 'Running in Degraded Mode'}
+              {!isDegraded && stateInfo.state === 'detected' && 'Database Issue Detected'}
+              {!isDegraded && stateInfo.state === 'recoverable' && 'Recovery Available'}
+              {!isDegraded && stateInfo.state === 'unrecoverable' && 'Database Corruption Detected'}
+              {!isDegraded && stateInfo.state === 'recovering' && 'Recovering...'}
+              {!isDegraded && stateInfo.state === 'recovered' && 'Recovery Successful'}
+              {!isDegraded && stateInfo.state === 'failed' && 'Recovery Failed'}
             </h3>
-            <p className="text-sm mt-1 opacity-90">{stateInfo.message}</p>
+            <p className="text-sm mt-1 opacity-90">
+              {isDegraded
+                ? 'Database is running in-memory. Data will not persist after page refresh. OPFS recovery options available below.'
+                : stateInfo.message}
+            </p>
 
             {stateInfo.context?.originalError && (
               <details className="mt-2">
@@ -157,10 +166,17 @@ export const RecoveryStatus: React.FC = () => {
 
             {diagnostics && (
               <div className="mt-3 text-xs grid grid-cols-2 gap-2">
-                <div>Read: {diagnostics.canRead ? '✓' : '✕'}</div>
-                <div>Write: {diagnostics.canWrite ? '✓' : '✕'}</div>
-                <div>OPFS: {diagnostics.opfsSupported ? '✓' : '✕'}</div>
+                <div>Active DB Read: {diagnostics.canRead ? '✓' : '✕'}</div>
+                <div>Active DB Write: {diagnostics.canWrite ? '✓' : '✕'}</div>
+                <div>OPFS Supported: {diagnostics.opfsSupported ? '✓' : '✕'}</div>
+                <div>OPFS Write: {diagnostics.opfsCanWrite ? '✓' : '✕'}</div>
+                <div>DB File Exists: {diagnostics.dbFileExists ? '✓' : '✕'}</div>
                 <div>Tables: {diagnostics.tableCount}</div>
+                {diagnostics.isInMemoryFallback && (
+                  <div className="col-span-2 text-orange-600 dark:text-orange-400 font-medium">
+                    ⚠ In-Memory Fallback Active
+                  </div>
+                )}
               </div>
             )}
 

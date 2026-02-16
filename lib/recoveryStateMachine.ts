@@ -57,6 +57,9 @@ export interface RecoveryDiagnostics {
   dbFileSize: number | null;
   tableCount: number;
   errorMessage: string;
+  isInMemoryFallback: boolean;
+  opfsCanRead: boolean;
+  opfsCanWrite: boolean;
 }
 
 export interface RecoveryStateInfo {
@@ -64,6 +67,7 @@ export interface RecoveryStateInfo {
   context?: RecoveryContext;
   message: string;
   actions: RecoveryAction[];
+  isInMemoryFallback: boolean;
 }
 
 export interface RecoveryAction {
@@ -97,41 +101,55 @@ const RECOVERY_ACTIONS: Record<RecoveryState, RecoveryAction[]> = {
   ],
   recoverable: [
     {
+      id: 'attempt_opfs_recovery',
+      label: 'Attempt OPFS Recovery',
+      description: 'Delete corrupt WAL files and reconnect to OPFS storage',
+      destructive: false,
+      priority: 1,
+    },
+    {
       id: 'retry_checkpoint',
       label: 'Retry Checkpoint',
       description: 'Attempt to flush pending writes to disk',
       destructive: false,
-      priority: 1,
+      priority: 2,
     },
     {
       id: 'reconnect',
       label: 'Reconnect Database',
       description: 'Close and reopen the database connection',
       destructive: false,
-      priority: 2,
+      priority: 3,
     },
     {
       id: 'export_backup',
       label: 'Export Backup',
       description: 'Download current database before attempting recovery',
       destructive: false,
-      priority: 3,
+      priority: 4,
     },
   ],
   unrecoverable: [
+    {
+      id: 'attempt_opfs_recovery',
+      label: 'Attempt OPFS Recovery',
+      description: 'Delete corrupt WAL files and reconnect to OPFS storage',
+      destructive: false,
+      priority: 1,
+    },
     {
       id: 'export_backup',
       label: 'Export Backup',
       description: 'Download remaining data before reset',
       destructive: false,
-      priority: 1,
+      priority: 2,
     },
     {
       id: 'reset_destructive',
       label: 'Reset Database',
       description: 'Delete all data and start fresh (cannot be undone)',
       destructive: true,
-      priority: 2,
+      priority: 3,
     },
   ],
   recovering: [],
@@ -183,6 +201,16 @@ class RecoveryStateMachine {
   private currentState: RecoveryState = 'healthy';
   private context: RecoveryContext | undefined;
   private listeners: Set<(state: RecoveryStateInfo) => void> = new Set();
+  private isInMemoryFallback: boolean = false;
+
+  setInMemoryFallback(value: boolean): void {
+    this.isInMemoryFallback = value;
+    this.notify();
+  }
+
+  getInMemoryFallback(): boolean {
+    return this.isInMemoryFallback;
+  }
 
   getState(): RecoveryStateInfo {
     return {
@@ -190,6 +218,7 @@ class RecoveryStateMachine {
       context: this.context,
       message: STATE_MESSAGES[this.currentState],
       actions: RECOVERY_ACTIONS[this.currentState],
+      isInMemoryFallback: this.isInMemoryFallback,
     };
   }
 
@@ -236,6 +265,9 @@ class RecoveryStateMachine {
       dbFileSize: null,
       tableCount: 0,
       errorMessage: '',
+      isInMemoryFallback: this.isInMemoryFallback,
+      opfsCanRead: false,
+      opfsCanWrite: false,
     };
 
     try {
@@ -246,8 +278,40 @@ class RecoveryStateMachine {
         const { getDatabaseFileSize } = await import('./opfsUtils');
         diagnostics.dbFileSize = await getDatabaseFileSize();
         diagnostics.dbFileExists = diagnostics.dbFileSize !== null;
+
+        // Attempt to directly test OPFS access (not through the in-memory fallback DB)
+        try {
+          const opfsRoot = await navigator.storage.getDirectory();
+          
+          // Test OPFS write access by trying to create a test file
+          try {
+            const testFile = await opfsRoot.getFileHandle('recovery_test_' + Date.now(), { create: true });
+            const writable = await testFile.createWritable();
+            await writable.write(new ArrayBuffer(1));
+            await writable.close();
+            await opfsRoot.removeEntry(testFile.name);
+            diagnostics.opfsCanWrite = true;
+          } catch (writeErr) {
+            logger.debug('OPFS write test failed:', writeErr);
+          }
+
+          // Test OPFS read access
+          try {
+            const dbFile = await opfsRoot.getFileHandle('homebench.db', { create: false });
+            const file = await dbFile.getFile();
+            if (file.size > 0) {
+              diagnostics.opfsCanRead = true;
+            }
+          } catch (readErr) {
+            logger.debug('OPFS read test failed (DB file may not exist):', readErr);
+          }
+        } catch (opfsErr) {
+          logger.debug('OPFS access test failed:', opfsErr);
+          diagnostics.errorMessage = opfsErr instanceof Error ? opfsErr.message : String(opfsErr);
+        }
       }
 
+      // Check the currently active database (may be in-memory fallback)
       const { DuckDBManager } = await import('./duckdbManager');
       const manager = DuckDBManager.getInstance();
 
@@ -255,7 +319,9 @@ class RecoveryStateMachine {
         await manager.executeQuery('SELECT 1', [], 'ro');
         diagnostics.canRead = true;
       } catch (e) {
-        diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+        if (!diagnostics.errorMessage) {
+          diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+        }
       }
 
       if (diagnostics.canRead) {
@@ -264,7 +330,9 @@ class RecoveryStateMachine {
           await manager.executeQuery(`CREATE TEMPORARY TABLE ${testTable} AS SELECT 1`, [], 'rw');
           diagnostics.canWrite = true;
         } catch (e) {
-          diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+          if (!diagnostics.errorMessage) {
+            diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+          }
         }
 
         try {
@@ -279,7 +347,9 @@ class RecoveryStateMachine {
         }
       }
     } catch (e) {
-      diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+      if (!diagnostics.errorMessage) {
+        diagnostics.errorMessage = e instanceof Error ? e.message : String(e);
+      }
     }
 
     if (this.context) {
@@ -298,6 +368,20 @@ class RecoveryStateMachine {
 
     logger.info('Recovery diagnostics:', diagnostics);
 
+    // CRITICAL: Never claim "recovered" when in in-memory fallback mode
+    // In-memory DB always works, but OPFS is still broken
+    if (this.isInMemoryFallback) {
+      // Check if OPFS itself is recoverable
+      if (diagnostics.opfsCanWrite && diagnostics.dbFileExists) {
+        this.transitionTo('recoverable');
+        return;
+      }
+      // OPFS is not recoverable, user must decide
+      this.transitionTo('unrecoverable');
+      return;
+    }
+
+    // Normal (non-fallback) flow
     if (diagnostics.canRead && diagnostics.canWrite) {
       this.transitionTo('recovered');
       return;
@@ -314,6 +398,13 @@ class RecoveryStateMachine {
   async attemptRecovery(method: 'checkpoint' | 'reconnect' = 'checkpoint'): Promise<boolean> {
     if (this.currentState !== 'recoverable' && this.currentState !== 'failed') {
       logger.warn('Cannot attempt recovery from current state:', this.currentState);
+      return false;
+    }
+
+    // CRITICAL: Standard recovery (checkpoint/reconnect) cannot fix OPFS when in fallback mode
+    // The in-memory DB always works, but OPFS is still broken
+    if (this.isInMemoryFallback) {
+      logger.warn('Standard recovery unavailable in fallback mode - use attempt_opfs_recovery instead');
       return false;
     }
 
@@ -375,6 +466,12 @@ class RecoveryStateMachine {
         return { success: true, message: 'Diagnostics completed' };
 
       case 'retry_checkpoint':
+        if (this.isInMemoryFallback) {
+          return {
+            success: false,
+            message: 'Checkpoint unavailable in fallback mode. Use "Attempt OPFS Recovery" to restore OPFS access.',
+          };
+        }
         const checkpointResult = await this.attemptRecovery('checkpoint');
         return {
           success: checkpointResult,
@@ -382,6 +479,12 @@ class RecoveryStateMachine {
         };
 
       case 'reconnect':
+        if (this.isInMemoryFallback) {
+          return {
+            success: false,
+            message: 'Reconnect unavailable in fallback mode. Use "Attempt OPFS Recovery" to restore OPFS access.',
+          };
+        }
         const reconnectResult = await this.attemptRecovery('reconnect');
         return {
           success: reconnectResult,
@@ -401,6 +504,12 @@ class RecoveryStateMachine {
         }
 
       case 'retry_recovery':
+        if (this.isInMemoryFallback) {
+          return {
+            success: false,
+            message: 'Standard recovery unavailable in fallback mode. Use "Attempt OPFS Recovery" to restore OPFS access.',
+          };
+        }
         await this.evaluateRecoverability();
         if (this.currentState === 'recoverable') {
           const result = await this.attemptRecovery('checkpoint');
@@ -418,6 +527,27 @@ class RecoveryStateMachine {
         this.reset();
         return { success: true, message: 'Dismissed' };
 
+      case 'attempt_opfs_recovery':
+        try {
+          const { DuckDBManager } = await import('./duckdbManager');
+          const manager = DuckDBManager.getInstance();
+          const opfsResult = await manager.attemptOpfsRecovery();
+          if (opfsResult.success) {
+            this.isInMemoryFallback = false;
+            this.transitionTo('recovered');
+          } else {
+            this.transitionTo('failed');
+          }
+          return {
+            success: opfsResult.success,
+            message: opfsResult.message,
+          };
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          logger.error('OPFS recovery action failed:', e);
+          return { success: false, message: `OPFS recovery failed: ${message}` };
+        }
+
       default:
         return { success: false, message: `Unknown action: ${actionId}` };
     }
@@ -426,6 +556,7 @@ class RecoveryStateMachine {
   reset(): void {
     this.currentState = 'healthy';
     this.context = undefined;
+    this.isInMemoryFallback = false;
     this.notify();
   }
 
