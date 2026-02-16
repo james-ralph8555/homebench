@@ -23,6 +23,15 @@ Do not create ad-hoc assistant-specific docs outside these canonical docs unless
 7. Do not mark a feature row as `merged` until user confirms validation.
 8. After user confirmation, update the row's `Status` and `Commit SHA`.
 
+## Environment Assumptions
+
+**CRITICAL: The agent must assume these services are already running and must NEVER start them:*
+
+- **Chrome DevTools**: Chromium with remote debugging on port 9222 is always available.
+- **Dev Server**: `npm run dev` is always running on port 3000.
+
+Do not attempt to start Chromium, npm run dev, or any other server processes. If browser automation fails, report the error and ask the user to verify the services are running - do not try to start them yourself.
+
 ## Browser Verification with MCP
 
 After completing code changes and CLI validation, automatically run browser verification:
@@ -37,24 +46,15 @@ After completing code changes and CLI validation, automatically run browser veri
    - Any console errors or unexpected behavior
    - Request manual user validation
 
-Prerequisite: Chrome must be running with remote debugging:
-```bash
-chromium --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-profile
-```
-
-If Chrome MCP is unavailable, fall back to providing test steps for manual user validation.
+Chrome DevTools MCP connects to port 9222 which is assumed to be already running. If connection fails, ask the user to verify Chrome is running with remote debugging - do not attempt to start it.
 
 ## Chrome DevTools MCP
 
 This project is configured with Chrome DevTools MCP (`.crush.json`) for browser automation.
 
-### Setup
+### Connection
 
-Start Chromium with remote debugging before using browser tools:
-
-```bash
-chromium --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-profile
-```
+Chrome DevTools MCP connects to an existing Chromium instance on port 9222. The user is responsible for starting Chrome with remote debugging enabled. Do not attempt to start Chrome yourself.
 
 ### Available MCP Tools
 
