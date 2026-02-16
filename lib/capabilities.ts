@@ -159,6 +159,23 @@ const CAPABILITIES: Record<string, () => Omit<CapabilityCheck, 'name'>> = {
     };
   },
 
+  threading: () => {
+    const hasSAB = typeof SharedArrayBuffer === 'function';
+    const isCrossOriginIsolated = typeof crossOriginIsolated === 'boolean' ? crossOriginIsolated : false;
+    const canThread = hasSAB;
+
+    return {
+      available: canThread,
+      required: false,
+      details: canThread
+        ? 'Threading available (COOP/COEP headers present, SharedArrayBuffer available)'
+        : 'Threading unavailable (requires COOP/COEP headers and SharedArrayBuffer)',
+      reason: canThread
+        ? undefined
+        : 'Enable Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers for threading support',
+    };
+  },
+
   worker: () => {
     const hasWorker = typeof Worker === 'function';
     return {
@@ -311,6 +328,19 @@ export function getCapabilityDescriptions(): Array<{
     details: cap.details,
     reason: cap.reason,
   }));
+}
+
+/**
+ * Check if threading capabilities are available for DuckDB WASM
+ *
+ * Threading requires:
+ * - SharedArrayBuffer (only available with COOP/COEP headers)
+ *
+ * @returns true if threading can be enabled
+ */
+export function hasThreadingCapabilities(): boolean {
+  const report = getCapabilityReport();
+  return report.capabilities.threading?.available ?? false;
 }
 
 /**

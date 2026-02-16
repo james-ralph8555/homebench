@@ -15,7 +15,8 @@
 
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { logger } from '@/lib/logger';
-import { DUCKDB_BUNDLES } from '@/lib/duckdbConfig';
+import { DUCKDB_BUNDLES, selectBundleByCapability } from '@/lib/duckdbConfig';
+import { hasThreadingCapabilities } from '@/lib/capabilities';
 
 // =============================================================================
 // TYPE DEFINITIONS
@@ -84,18 +85,27 @@ export function isOpfsSupported(): boolean {
 
 /**
  * Gets the appropriate DuckDB WASM bundle for browser usage with streaming support.
- * 
- * Uses public URLs to DuckDB assets and implements streaming compilation
- * for better performance on large WASM files.
- * 
+ *
+ * Uses capability-gated bundle selection:
+ * - COI bundle with threading if SharedArrayBuffer available (COOP/COEP present)
+ * - EH bundle (SIMD, no threading) as fallback
+ * - MVP bundle as final fallback
+ *
  * @param {DatabaseOptions} options - Configuration options (currently unused)
  * @returns {Promise<duckdb.DuckDBBundle>} Bundle configuration for DuckDB
  */
 async function getDuckDbBundle(options: DatabaseOptions = {}): Promise<duckdb.DuckDBBundle> {
-  // Select a bundle based on browser checks
-  const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
-  logger.debug('Selected DuckDB bundle:', bundle);
-  return bundle;
+  // Check threading capabilities (requires COOP/COEP headers for SharedArrayBuffer)
+  const canThread = hasThreadingCapabilities();
+
+  // Use capability-gated bundle selection
+  const selection = selectBundleByCapability(canThread);
+  logger.info(`DuckDB bundle selected: ${selection.bundleType}`, {
+    threadingEnabled: selection.threadingEnabled,
+    reason: selection.reason,
+  });
+
+  return selection.bundle;
 }
 
 /**
