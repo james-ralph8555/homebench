@@ -99,6 +99,30 @@ npm run build
 npm start
 ```
 
+### CloudFront + S3 Deployment (CDK)
+
+HomeBench now includes an AWS CDK app at `infra/` for static hosting on S3 + CloudFront.
+
+```bash
+# 1) Build static assets (writes to out/)
+npm run build
+
+# 2) Deploy certificate stack (ACM in us-east-1)
+cd infra
+npm install
+npm run deploy:cert
+
+# 3) Deploy site stack
+# Replace CERT_ARN with output from step 2 to attach custom domains.
+npm run deploy:site -- -c certificateArn=CERT_ARN
+```
+
+Notes:
+- Default domain is `homebench.casa` (override with `-c domainName=...`).
+- Override artifact path with `-c distPath=/absolute/path/to/out` if needed.
+- You can deploy the site stack without `certificateArn`; CloudFront will use its default domain.
+- `/duckdb/*/*.wasm` and `/duckdb/*/*.js` are deployed with immutable caching (`max-age=31536000`) and `Vary: Accept-Encoding` to preserve the old Amplify header behavior.
+
 ## Technical Documentation
 
 ### Architecture Overview

@@ -2,6 +2,7 @@
 
 # Dependencies
 /node_modules
+/infra/node_modules
 /.pnp
 .pnp.js
 .pnp.loader.mjs
@@ -12,6 +13,8 @@
 # Next.js
 /.next/
 /out/
+/infra/dist
+/infra/cdk.out
 
 # Production
 /build
