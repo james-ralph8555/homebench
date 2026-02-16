@@ -37,6 +37,36 @@ Primary implementation environment is Charm Crush editor. For every feature row:
    - `Expected results`
 4. Wait for user confirmation before setting the row to `merged`.
 
+## Chrome DevTools MCP
+
+This project is configured with Chrome DevTools MCP (`.crush.json`) for browser automation.
+
+### Setup
+
+Start Chromium with remote debugging before using browser tools:
+
+```bash
+chromium --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug-profile
+```
+
+### Available MCP Tools
+
+All tools are prefixed with `mcp_chrome-devtools_`:
+
+- **Navigation**: `navigate_page`, `new_page`, `close_page`, `list_pages`, `select_page`, `wait_for`
+- **Input**: `click`, `fill`, `fill_form`, `hover`, `press_key`, `drag`, `handle_dialog`, `upload_file`
+- **Debugging**: `take_screenshot`, `take_snapshot`, `evaluate_script`, `list_console_messages`
+- **Performance**: `performance_start_trace`, `performance_stop_trace`, `performance_analyze_insight`
+- **Network**: `list_network_requests`, `get_network_request`
+
+### Browser Verification with MCP
+
+When running option (2) from the verification gate, use these tools to:
+1. `mcp_chrome-devtools_navigate_page` to load `http://localhost:3000`
+2. `mcp_chrome-devtools_take_screenshot` to capture state
+3. `mcp_chrome-devtools_click`/`mcp_chrome-devtools_fill` for interactions
+4. `mcp_chrome-devtools_list_console_messages` to check for errors
+
 ## Build, Test, and Dev Commands
 
 - `npm run dev`: start local development server.
