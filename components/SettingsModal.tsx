@@ -48,7 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   chartRowLimit,
   onChartRowLimitChange,
 }) => {
-  const { db, initializationStage, isReady, multiTabStatus } = useDuckDB();
+  const { db, initializationStage, isReady, multiTabStatus, capabilityMode, capabilityReport } = useDuckDB();
   const [opfsInfo, setOpfsInfo] = useState<OPFSInfo>({
     supported: false,
     fileSize: null,
@@ -343,6 +343,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </span>
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Compatibility Mode:</span>
+                <span className={`text-sm font-medium ${
+                  capabilityMode === 'full' ? 'text-green-600' :
+                  capabilityMode === 'degraded' ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>
+                  {capabilityMode === 'full' ? 'Full' :
+                   capabilityMode === 'degraded' ? 'Degraded' :
+                   'Unsupported'}
+                </span>
+              </div>
+              {capabilityMode !== 'full' && capabilityReport.missingOptional.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs text-yellow-600 dark:text-yellow-400">
+                    Missing optional: {capabilityReport.missingOptional.join(', ')}
+                  </span>
+                </div>
+              )}
+              {capabilityMode === 'unsupported' && capabilityReport.missingRequired.length > 0 && (
+                <div className="mt-1">
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    Missing required: {capabilityReport.missingRequired.join(', ')}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">OPFS Support:</span>
                 <span className={`text-sm font-medium ${
