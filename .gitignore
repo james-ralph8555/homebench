@@ -51,3 +51,6 @@ next-env.d.ts
 .aider*
 
 public/duckdb/
+
+# Browser verification screenshots
+docs/screenshots/
